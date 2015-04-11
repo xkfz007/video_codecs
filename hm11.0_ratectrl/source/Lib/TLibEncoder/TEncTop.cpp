@@ -151,7 +151,7 @@ Void TEncTop::create ()
   m_param.rc.f_vbv_buffer_init=VBV_Init;
 #endif
   memset(&m_x264RC, 0, sizeof(x264_ratecontrol_t));
-  x264_ratecontrol_new(&m_x264RC, &m_param, g_uiMaxCUWidth, g_uiMaxCUHeight);
+  x264_ratecontrol_new(&m_x264RC, &m_param, g_uiMaxCUWidth, g_uiMaxCUHeight,m_GOPList);
 #else
 
 #if RATE_CONTROL_LAMBDA_DOMAIN

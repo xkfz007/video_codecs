@@ -397,6 +397,7 @@ private:
 };
 #elif defined(X264_RATECONTROL_2006)
 
+#include "../TLibEncoder/TEncCfg.h"
 
 #define RC_P_WINDOW 8
 #define GOPSIZE 3 //gopsize+1
@@ -409,6 +410,7 @@ private:
 #define _USE_BITRATE_DETECT_ 1
 #define _USE_I_REDUCE_QPSTEP_ 0
 #define _USE_SATD_BASED_LCU_ 1
+#define _USE_FRAMELEVEL_ 1
 
 
 #define X264_RC_CQP                  0 //Constant quantizer, the QPs are simply based on whether the frame is P,I or B frame.
@@ -522,6 +524,12 @@ struct x264_ratecontrol_t
 	double ip_offset;
 	double pb_offset;
 	double ratefactor;
+	double *cplxr_sum_for_level;
+	double *wanted_bits_window_for_level;
+	double *last_rceq_for_level;
+	double *bits_for_level;
+	double *realbits_for_level;
+	double *wanted_bits_for_level;
 
 
 	double wanted_bits_window_lcu;
@@ -536,6 +544,13 @@ struct x264_ratecontrol_t
 	double lcu_satd_sum;
 	double lcu_idx;
 	int lcu_num;
+	int *GOPID2Level;
+	double *last_qscale_for_level;
+	int FrameLevel;
+	int Prev_FrameLevel;
+	double *lstep_for_level;
+	double *lstep_for_level_inv;
+	int numberOfLevel;
 
 	double last_qscale;
 //	double last_qscale2;
@@ -597,7 +612,7 @@ struct x264_ratecontrol_t
 
 };
 
-int x264_ratecontrol_new( x264_ratecontrol_t* rc, x264_param_t* pParam, int lcuwidth, int lcuheight);
+int x264_ratecontrol_new( x264_ratecontrol_t* rc, x264_param_t* pParam, int lcuwidth, int lcuheight,GOPEntry  *GOPList);
 void x264_ratecontrol_delete( x264_ratecontrol_t* rc,x264_param_t* pParam );
 void x264_ratecontrol_start( x264_ratecontrol_t *rc, x264_param_t* pParam, int i_slice_type, int i_force_qp );
 void x264_ratecontrol_end( x264_ratecontrol_t *rc, x264_param_t* pParam,int bits, int cost);
