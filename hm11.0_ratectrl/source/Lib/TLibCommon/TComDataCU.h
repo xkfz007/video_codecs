@@ -199,6 +199,9 @@ private:
   UInt*         m_sliceStartCU;    ///< Start CU address of current slice
   UInt*         m_sliceSegmentStartCU; ///< Start CU address of current slice
   Char          m_codedQP;
+#ifdef X264_RATECONTROL_2006
+  Int                     m_LCUHadCost;
+#endif
 protected:
   
   /// add possible motion vector predictor candidates
@@ -231,7 +234,10 @@ public:
 #endif  
     );
   Void          destroy               ();
-  
+#ifdef X264_RATECONTROL_2006
+  Int getLCUHadCost() { return m_LCUHadCost; }
+  void setLCUHadCost(int cost) { m_LCUHadCost=cost; }
+#endif
   Void          initCU                ( TComPic* pcPic, UInt uiCUAddr );
   Void          initEstData           ( UInt uiDepth, Int qp );
   Void          initSubCU             ( TComDataCU* pcCU, UInt uiPartUnitIdx, UInt uiDepth, Int qp );

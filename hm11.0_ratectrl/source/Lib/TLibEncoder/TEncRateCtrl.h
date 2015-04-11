@@ -411,7 +411,7 @@ private:
 #define _USE_I_REDUCE_QPSTEP_ 0
 #define _USE_SATD_BASED_LCU_ 1
 #define _USE_FRAMELEVEL_ 1
-#define _USE_ADAPTIVEBITS_ 1
+#define _USE_LCU_ABR_ 0
 
 
 #define X264_RC_CQP                  0 //Constant quantizer, the QPs are simply based on whether the frame is P,I or B frame.
@@ -555,6 +555,7 @@ struct x264_ratecontrol_t
 	double *last_qscale_for_level;
 	int FrameLevel;
 	int Prev_FrameLevel;
+	int Last_FrameLevel;
 	double *lstep_for_level;
 	double *lstep_for_level_inv;
 	int numberOfLevel;
@@ -571,10 +572,7 @@ struct x264_ratecontrol_t
 	double lmax[3];
 	double lmin_I;
 	double lmax_I;
-	double lstep;               /* max change (multiply) in qscale per frame */
-	double lstep_2times;     
-	double lstep_3times;     
-	double lstep_half;      
+	double lstep[6];               /* max change (multiply) in qscale per frame */
 	double brate;
 
 	/* MBRC stuff */
@@ -625,7 +623,8 @@ void x264_ratecontrol_start( x264_ratecontrol_t *rc, x264_param_t* pParam, int i
 void x264_ratecontrol_end( x264_ratecontrol_t *rc, x264_param_t* pParam,int bits, int cost);
 int x264_ratecontrol_qp( x264_ratecontrol_t *rc );
 void x264_ratecontrol_mb( x264_ratecontrol_t *rc, x264_param_t* pParam, int bits, int cost );
-void x264_ratecontrol_lcu( x264_ratecontrol_t *rc, x264_param_t* pParam, int bits, int cost );
+void x264_ratecontrol_lcu_abr_start( x264_ratecontrol_t *rc, x264_param_t* pParam,int cost );
+void x264_ratecontrol_lcu_abr_end( x264_ratecontrol_t *rc, x264_param_t* pParam, int bits);
 void x264_ratecontrol_lcu_start( x264_ratecontrol_t *rc, x264_param_t* pParam);
 void x264_ratecontrol_lcu_end( x264_ratecontrol_t *rc, x264_param_t* pParam, int bits, int cost );
 void  x264_param_default( x264_param_t *param );

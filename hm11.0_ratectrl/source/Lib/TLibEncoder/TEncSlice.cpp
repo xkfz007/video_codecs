@@ -196,6 +196,7 @@ Int TEncSlice::calCostSliceI(TComPic*& rpcPic)
     iSumHad = m_pcCuEncoder->updateLCUDataISlice(pcCU, uiCUAddr, width, height);
 
     m_costIntra=(iSumHad+offset)>>shift;
+	pcCU->setLCUHadCost(m_costIntra);
     iSumHadSlice += m_costIntra;
 
 //	fprintf(fp,"%7d ",m_costIntra);
@@ -1184,7 +1185,11 @@ Void TEncSlice::compressSlice( TComPic*& rpcPic )
       }
 #else
 		if(m_pcParam->rc.b_lcurc)
+#if _USE_LCU_ABR_
+			x264_ratecontrol_lcu_abr_start( m_pcRateCtrl, m_pcParam,pcCU->getLCUHadCost());
+#else
 			x264_ratecontrol_lcu_start( m_pcRateCtrl, m_pcParam);
+#endif
 		int qp_tmp=x264_ratecontrol_qp(m_pcRateCtrl);
         xLamdaRecalculation(qp_tmp, m_pcRateCtrl->gop_id, pcSlice->getDepth(), pcSlice->getSliceType(), pcSlice->getSPS(), pcSlice );
 //		printf("qpm= %d ",m_pcRateCtrl->qpm);
@@ -1576,9 +1581,11 @@ Void TEncSlice::compressSlice( TComPic*& rpcPic )
 				x264_ratecontrol_mb( m_pcRateCtrl, m_pcParam, pcCU->getTotalBits(), CuSAD);
 			}
 			else if(m_pcParam->rc.b_lcurc) {
-
-		//		x264_ratecontrol_lcu( m_pcRateCtrl, m_pcParam, pcCU->getTotalBits(), CuSAD);
+#if _USE_LCU_ABR_
+				x264_ratecontrol_lcu_abr_end( m_pcRateCtrl, m_pcParam, pcCU->getTotalBits());
+#else
 				x264_ratecontrol_lcu_end( m_pcRateCtrl, m_pcParam, pcCU->getTotalBits(), resi);
+#endif
 			}
 
 #endif
