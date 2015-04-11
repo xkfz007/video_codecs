@@ -482,6 +482,8 @@ static const char * const x264_motion_est_names[] = { "dia", "hex", "umh", "esa"
 #define _USE_MY_CONDITION 1
 #define _NO_PRED_INIT_ 1
 #define _USE_CLIPSCALE_ 0
+#define _USE_BITS_ALLOC1_ 0
+#define _USE_BITS_ALLOC2_ 0
 
 
 #define X264_RC_CQP                  0 //Constant quantizer, the QPs are simply based on whether the frame is P,I or B frame.
@@ -589,7 +591,9 @@ typedef struct
 		float       f_qcompress;    /* 0.0 => cbr, 1.0 => constant qp */
 		float       f_qblur;        /* temporally blur quants */
 		float       f_complexity_blur; /* temporally blur complexity */
+
 	} rc;
+	int frame_to_be_encoded;
 	int gopsize;
 
 	int b_aud;                  /* generate access unit delimiters */
@@ -651,6 +655,10 @@ struct x264_ratecontrol_t
 	int nmb;                    /* number of macroblocks in a frame */
 	int qp_constant[3];
 	int gop_id;
+	int tbits;
+	double wanted_bits;
+	int skip_lcu_num;
+	int start_flag;
 
 	/* current frame */
 	ratecontrol_entry_t *rce;
@@ -682,14 +690,21 @@ struct x264_ratecontrol_t
 	double cplxr_sum;           /* sum of bits*qscale/rceq */
 	double expected_bits_sum;   /* sum of qscale2bits after rceq, ratefactor, and overflow */
 	double wanted_bits_window;  /* target bitrate * window */
-//	double wanted_bits_window2;
-//	double cplxr_sum2;
 	double cbr_decay;
 	double short_term_cplxsum;
 	double short_term_cplxcount;
 	double rate_factor_constant;
 	double ip_offset;
 	double pb_offset;
+
+
+	double wanted_bits_window_lcu;
+	double cplxr_sum_lcu;
+	double wanted_bits_lcu;
+	double bitcost_lcu;
+	int *lcu_satd;
+	int *lcu_bits;
+	double last_rceq_lcu;
 
 	int num_entries;            /* number of ratecontrol_entry_ts */
 	ratecontrol_entry_t *entry; /* FIXME: copy needed data and free this once init is done */
@@ -719,6 +734,7 @@ struct x264_ratecontrol_t
 
 //add
 	int64_t bitcost;
+	int64_t bitcost_gop;
 	int i_frame;
 	int i_mb_x;
 	int i_mb_y;
@@ -738,7 +754,6 @@ struct x264_ratecontrol_t
 
 #endif
 
-	int *lcu_sad;
 	int lcu_sad_avg;
 	int lcu_sad_sum;
 	int lcu_idx;
@@ -766,6 +781,7 @@ void x264_ratecontrol_start( x264_ratecontrol_t *rc, x264_param_t* pParam, int i
 void x264_ratecontrol_end( x264_ratecontrol_t *rc, x264_param_t* pParam,int bits, int cost);
 int x264_ratecontrol_qp( x264_ratecontrol_t *rc );
 void x264_ratecontrol_mb( x264_ratecontrol_t *rc, x264_param_t* pParam, int bits, int cost );
+void x264_ratecontrol_lcu( x264_ratecontrol_t *rc, x264_param_t* pParam, int bits, int cost );
 
 #else
 

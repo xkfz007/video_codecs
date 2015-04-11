@@ -363,6 +363,8 @@ Void TEncSlice::initEncSlice( TComPic* pcPic, Int pocLast, Int pocCurr, Int iNum
 				 std_val+=lcu_std_val;
 				 if(m_pcParam->b_variable_qp)
 					 m_pcRateCtrl->i_row_satd_last[y/lcu_sz]+=lcu_std_val;
+				 else if(m_pcParam->rc.b_lcurc)
+					 m_pcRateCtrl->lcu_satd[y/lcu_sz*picWidth/lcu_sz+x/lcu_sz]=lcu_std_val;
 			 }
 		//	 printf("%d: %d\n",y/lcu_sz,m_pcRateCtrl->i_row_satd_last[y/lcu_sz]);
 		 }
@@ -385,6 +387,7 @@ Void TEncSlice::initEncSlice( TComPic* pcPic, Int pocLast, Int pocCurr, Int iNum
       dQP += m_pcCfg->getGOPEntry(iGOPid).m_QPOffset;
     }
   }
+
   
   // modify QP
   Int* pdQPs = m_pcCfg->getdQPs();
@@ -1441,9 +1444,9 @@ Void TEncSlice::compressSlice( TComPic*& rpcPic )
 //				pv=fopen("pred_v.txt","a");
 			}
 
-			for( y = 0; y < height; y++ )
+			for(int y = 0; y < height; y++ )
 			{
-				for( x = 0; x < width; x++ )
+				for(int x = 0; x < width; x++ )
 				{
 					CuSAD+= abs( pOrg_Y[x] - pPred_Y[x] );
 		//			fwrite(&pPred_Y[x],2,1,py);
@@ -1456,9 +1459,9 @@ Void TEncSlice::compressSlice( TComPic*& rpcPic )
 				pPred_Y += stride;
 			}
 			//fprintf(py,"\n");
-			for( y = 0; y < height/2; y++ )
+			for(int y = 0; y < height/2; y++ )
 			{
-				for( x = 0; x < width/2; x++ )
+				for(int x = 0; x < width/2; x++ )
 				{
 					CuSAD+= abs( pOrg_U[x] - pPred_U[x] );
 					CuSAD+= abs( pOrg_V[x] - pPred_V[x] );
@@ -1492,9 +1495,11 @@ Void TEncSlice::compressSlice( TComPic*& rpcPic )
 			m_uiPicSAD+=CuSAD;
 		//	printf("%d [%d %d] \n",CuSAD,height,width);
 
-			if(m_pcParam->b_variable_qp)
-			{
+			if(m_pcParam->b_variable_qp) {
 				x264_ratecontrol_mb( m_pcRateCtrl, m_pcParam, pcCU->getTotalBits(), CuSAD);
+			}
+			else if(m_pcParam->rc.b_lcurc) {
+				x264_ratecontrol_lcu( m_pcRateCtrl, m_pcParam, pcCU->getTotalBits(), CuSAD);
 			}
 
 #endif

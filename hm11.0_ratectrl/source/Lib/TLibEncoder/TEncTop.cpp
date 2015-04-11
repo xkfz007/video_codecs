@@ -202,6 +202,8 @@ Void TEncTop::create ()
 
   m_param.i_fps_num       = getFrameRate();
   m_param.i_fps_den       = 1;
+  m_param.frame_to_be_encoded=getFramesToBeEncoded();
+//  m_param.gopsize=getGOPSize();
 
   m_param.rc.i_qp_constant=getQP();
   m_param.rc.i_bitrate = getTargetBitrate();

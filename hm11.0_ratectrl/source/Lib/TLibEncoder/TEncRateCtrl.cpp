@@ -1671,6 +1671,7 @@ static __inline int x264_clip3( int v, int i_min, int i_max )
 {
 	return ( (v < i_min) ? i_min : (v > i_max) ? i_max : v );
 }
+int clip_ops;
 int x264_ratecontrol_new( x264_ratecontrol_t *rc, x264_param_t* pParam, int lcuwidth, int lcuheight)
 {
 	Int picWidth = pParam->i_width;
@@ -1684,7 +1685,9 @@ int x264_ratecontrol_new( x264_ratecontrol_t *rc, x264_param_t* pParam, int lcuw
 
 	rc->i_frame = 0;
 	rc->bitcost = 0;
+	rc->bitcost_gop = 0;
 	rc->first_row = 0;
+	clip_ops=0;
 #if _USE_LCU_
 	rc->last_row = picWidthInBU*picHeightInBU-1;
 #else
@@ -1708,6 +1711,7 @@ int x264_ratecontrol_new( x264_ratecontrol_t *rc, x264_param_t* pParam, int lcuw
 	rc->nmb = pParam->m_numberOfLCU;
 	rc->last_non_b_pict_type = -1;
 	rc->cbr_decay = 1.0;//1.0;
+
 
 	if( pParam->rc.i_rf_constant>-1 )
 	{
@@ -1772,8 +1776,8 @@ int x264_ratecontrol_new( x264_ratecontrol_t *rc, x264_param_t* pParam, int lcuw
 
 	if( rc->b_abr )
 	{
-		double i_frame_avrgbit = (rc->bitrate+(rc->fps/2)) / rc->fps;	
-		double i_framsad_Pavg = 0;
+//		double i_frame_avrgbit = (rc->bitrate+(rc->fps/2)) / rc->fps;	
+//		double i_framsad_Pavg = 0;
 		/* FIXME shouldn't need to arbitrarily specify a QP,
 		* but this is more robust than BPP measures */
 #define ABR_INIT_QP ( pParam->rc.i_rf_constant > 0 ? pParam->rc.i_rf_constant : 38 )
@@ -1785,6 +1789,14 @@ int x264_ratecontrol_new( x264_ratecontrol_t *rc, x264_param_t* pParam, int lcuw
         rc->cplxr_sum = .01 * pow( 7.0e5, (double)pParam->rc.f_qcompress) * pow( pParam->m_numberOfLCU, 0.5 );
         rc->wanted_bits_window = 1.0 * rc->bitrate / rc->fps;
         rc->last_non_b_pict_type = SLICE_TYPE_I;
+
+		rc->wanted_bits=0;
+#if _USE_BITS_ALLOC1_
+		rc->tbits=rc->bitrate/rc->fps*pParam->frame_to_be_encoded;
+#endif
+#if _USE_BITS_ALLOC2_
+		rc->tbits=rc->bitrate;
+#endif
 
 	}
 #if _USE_REAL_SATD_
@@ -1870,6 +1882,12 @@ int x264_ratecontrol_new( x264_ratecontrol_t *rc, x264_param_t* pParam, int lcuw
 		rc->row_preds[2].coeff=0.091788*2;//0.05;//0.15;///4;
 #endif
 
+	}
+	if(pParam->rc.b_lcurc){
+		rc->lcu_satd=(int*)malloc(pParam->m_numberOfLCU*sizeof(int));
+		rc->lcu_bits=(int*)malloc(pParam->m_numberOfLCU*sizeof(int));
+		memset(rc->lcu_satd,0,pParam->m_numberOfLCU*sizeof(int));
+		memset(rc->lcu_bits,0,pParam->m_numberOfLCU*sizeof(int));
 	}
 	return 0;
 }
@@ -1982,11 +2000,11 @@ static float rate_estimate_qscale(x264_ratecontrol_t *rcc, x264_param_t* pParam,
 	//int64_t total_bits = 8*(h->stat.i_slice_size[SLICE_TYPE_I]
 	//+ h->stat.i_slice_size[SLICE_TYPE_P]
 	//+ h->stat.i_slice_size[SLICE_TYPE_B]);
-	int64_t total_bits = rcc->bitcost;
+//	int64_t total_bits = rcc->bitcost;
 	double abr_buffer = 2 * rcc->rate_tolerance * rcc->bitrate;
-	double wanted_bits, overflow=1.0;
+	double overflow=1.0;
 
-	//			rcc->last_satd = x264_rc_analyse_slice( h );
+	//rcc->last_satd = x264_rc_analyse_slice( h );
 	rcc->short_term_cplxsum *= 0.5;
 	rcc->short_term_cplxcount *= 0.5;
 	rcc->short_term_cplxsum += rcc->last_satd;
@@ -1997,7 +2015,7 @@ static float rate_estimate_qscale(x264_ratecontrol_t *rcc, x264_param_t* pParam,
 	if( pParam->rc.i_rc_method==X264_RC_CRF )
 	{
 		q = get_qscale( rcc, blurred_complexity, pParam,  rcc->rate_factor_constant);
-		overflow = 1;
+	//	overflow = 1;
 	}
 	else
 	{
@@ -2005,16 +2023,22 @@ static float rate_estimate_qscale(x264_ratecontrol_t *rcc, x264_param_t* pParam,
 		/* ABR code can potentially be counterproductive in CBR, so just don't bother.
 		* Don't run it if the frame complexity is zero either. */
 		//  if( !rcc->b_vbv_min_rate && rcc->last_satd ) 
-		{
-			wanted_bits = rcc->i_frame * rcc->bitrate / rcc->fps;
-			//				printf("q2= %f wbwin= %f wb=%f ",q,rcc->wanted_bits_window,wanted_bits);
-
-			abr_buffer *= X264_MAX( 1, sqrt((double)rcc->i_frame/rcc->fps) );
-			overflow = x264_clip3f( 1.0 + (total_bits - wanted_bits) / abr_buffer, .5, 2 );
-			if(wanted_bits==0)
-				overflow=1.02;
+		//			wanted_bits = rcc->i_frame * rcc->bitrate / rcc->fps;
+		abr_buffer *= X264_MAX( 1, sqrt((double)rcc->i_frame/rcc->fps) );
+#if _USE_BITS_ALLOC2_
+		if(rcc->i_frame%(int)rcc->fps==0){
+			rcc->bitcost_gop=0;
+			rcc->wanted_bits=0;
 		}
+		overflow = x264_clip3f( 1.0 + (rcc->bitcost_gop-rcc->wanted_bits) / abr_buffer, .5, 2 );
+		q*=overflow;
+#else
+		overflow = x264_clip3f( 1.0 + (rcc->bitcost- rcc->wanted_bits) / abr_buffer, .5, 2 );
+		if(rcc->wanted_bits==0)
+			overflow=1.02;
 		q *= overflow;
+#endif
+
 #if 0
 		//				printf("cplxsum= %f ",rcc->short_term_cplxsum);
 		//				printf("cplxcount= %f ",rcc->short_term_cplxcount);
@@ -2060,8 +2084,11 @@ static float rate_estimate_qscale(x264_ratecontrol_t *rcc, x264_param_t* pParam,
 				lmin /= rcc->lstep;
 #endif
 			q = x264_clip3f(q, lmin, lmax);
+			if(abs(q-lmin)<0.000001||abs(q-lmax)<0.000001)
+				clip_ops++;
 
 		}
+//		printf("clip= %d ",clip_ops);
 		rcc->qp_novbv = qscale2qp( q );
 		q = clip_qscale(rcc, pParam, pict_type, q);
 		rcc->last_qscale_for[pict_type] = rcc->last_qscale = q;
@@ -2161,6 +2188,8 @@ void x264_ratecontrol_start( x264_ratecontrol_t *rc, x264_param_t* pParam, int i
 	rc->slice_type = i_slice_type;
 
 	rc->qpa = 0;
+	rc->skip_lcu_num=0;
+	rc->start_flag=0;
 	
 #if _NEW_SATD_EST_
 //	printf("bits= %d ",rc->bitcost);
@@ -2237,6 +2266,8 @@ void x264_ratecontrol_start( x264_ratecontrol_t *rc, x264_param_t* pParam, int i
 	{
 		rc->qpm=rc->qp= rc->qp_constant[ i_slice_type ];
 	}
+
+
 }
 
 static void update_predictor( predictor_t *p, double q, double var, double bits )
@@ -2416,23 +2447,123 @@ void x264_ratecontrol_mb( x264_ratecontrol_t *rc, x264_param_t* pParam, int bits
 }
 
 
+
+void x264_ratecontrol_lcu(x264_ratecontrol_t *rc, x264_param_t* pParam, int bits, int cost){
+	rc->qpa += rc->qpm;
+
+	double qscale;
+	double cur_satd;
+	cur_satd=0.5*rc->lcu_satd[rc->i_mb_y*pParam->picHeightInBU+rc->i_mb_x]+0.5*cost;
+
+	rc->lcu_satd[rc->i_mb_y*pParam->picHeightInBU+rc->i_mb_x]=cost;
+	rc->lcu_bits[rc->i_mb_y*pParam->picHeightInBU+rc->i_mb_x]=bits;
+
+	if( rc->i_mb_x != pParam->picWidthInBU-1 ) 
+		rc->i_mb_x++;
+	else{
+		rc->i_mb_x=0;
+		rc->i_mb_y++;
+	}
+	if(bits<10||cost<10) {
+		rc->skip_lcu_num++;
+#if 0
+		printf("\033[33m[%d,%d]:(skip)\033[0m ",rc->i_mb_y,rc->i_mb_x);
+#else
+		printf("[%d,%d]:(skip) ",rc->i_mb_y,rc->i_mb_x);
+#endif
+		return;
+	}
+
+	//qscale=pow(cur_satd*pParam->m_numberOfLCU,1.0-(double)pParam->rc.f_qcompress);
+	qscale=pow(cur_satd,1.0-(double)pParam->rc.f_qcompress);
+	if(rc->start_flag==0) {
+		rc->wanted_bits_window_lcu=rc->bitrate/rc->fps/(pParam->m_numberOfLCU-rc->skip_lcu_num);
+		rc->cplxr_sum_lcu=bits;
+		rc->wanted_bits_lcu=0;
+		rc->bitcost_lcu=0;
+		rc->last_rceq_lcu=rc->last_rceq/pow(pParam->m_numberOfLCU,1-pParam->rc.f_qcompress);
+		rc->start_flag=1;
+	}	
+
+	double ratefactor=rc->wanted_bits_window_lcu/rc->cplxr_sum_lcu;
+	rc->wanted_bits_window_lcu+=rc->bitrate/rc->fps/(pParam->m_numberOfLCU-rc->skip_lcu_num);
+	rc->cplxr_sum_lcu+=bits*qp2qscale(rc->qpm)/rc->last_rceq_lcu;
+	rc->last_rceq_lcu=qscale;
+
+	qscale/=ratefactor;
+
+	double abr_buffer_lcu = 2 * rc->rate_tolerance * rc->bitrate/(pParam->m_numberOfLCU-rc->skip_lcu_num);
+	abr_buffer_lcu*=X264_MAX( 1, sqrt((double)rc->i_mb_y));
+	rc->wanted_bits_lcu+=rc->bitrate/rc->fps/(pParam->m_numberOfLCU-rc->skip_lcu_num);
+	rc->bitcost_lcu+=bits;
+	double overflow = x264_clip3f( 1.0 + (rc->bitcost_lcu- rc->wanted_bits_lcu) / abr_buffer_lcu, .5, 2 );
+	qscale*=overflow;
+
+	double qp=qscale2qp(qscale);
+	qp=x264_clip3f(qp,rc->qp-2*pParam->rc.i_qp_step,rc->qp+0*pParam->rc.i_qp_step);
+	rc->qpm=qp;
+
+#if 0
+	if(abs(qp-qscale2qp(qscale))<0.0001)
+		printf("\033[32m[%d,%d]:(%4.2f,%3.1f,%3.1f)\033[0m ",rc->i_mb_y,rc->i_mb_x,qscale,qscale2qp(qscale),qp);
+	else if(qscale2qp(qscale)<qp)
+		printf("\033[31m[%d,%d]:(%4.2f,%3.1f,%3.1f)\033[0m ",rc->i_mb_y,rc->i_mb_x,qscale,qscale2qp(qscale),qp);
+	else
+		printf("[%d,%d]:(%4.2f,%3.1f,%3.1f) ",rc->i_mb_y,rc->i_mb_x,qscale,qscale2qp(qscale),qp);
+#else
+	printf("[%d,%d]:(%4.2f,%3.1f,%3.1f) ",rc->i_mb_y,rc->i_mb_x,qscale,qscale2qp(qscale),qp);
+#endif
+
+}
 /* After encoding one frame, save stats and update ratecontrol state */
 void x264_ratecontrol_end( x264_ratecontrol_t *rc, x264_param_t* pParam,int bits, int cost)
 {
 	int i;
-	if( pParam->b_variable_qp ) 
+	if( pParam->b_variable_qp||pParam->rc.b_lcurc ) 
 		rc->qpa /= pParam->m_numberOfLCU;
 	else
 		rc->qpa = rc->qp;
 
 	rc->bitcost += bits;
+	rc->bitcost_gop+=bits;
+
 
 	if( rc->b_abr )
 	{
+#if _USE_BITS_ALLOC1_ 
 		rc->cplxr_sum += bits * qp2qscale(rc->qpa) / rc->last_rceq;
-		rc->cplxr_sum *= rc->cbr_decay;
+		rc->wanted_bits+=(rc->tbits*1.0)/(pParam->frame_to_be_encoded-rc->i_frame);
+		rc->tbits-=bits;
+		if(rc->tbits<0)
+			rc->tbits=0;
+		rc->wanted_bits_window+=rc->tbits*1.0/(pParam->frame_to_be_encoded-rc->i_frame-1);
+		printf("bpf= %f ",rc->tbits*1.0/(pParam->frame_to_be_encoded-rc->i_frame-1));
+		fflush(stdout);
+#elif _USE_BITS_ALLOC2_
+		rc->wanted_bits+=(rc->tbits*1.0)/(rc->fps-rc->i_frame%(int)rc->fps);
+		rc->tbits-=bits;
+		if(rc->tbits<0)
+			rc->tbits=0;
+		if(rc->fps-rc->i_frame%(int)rc->fps-1!=0) {
+			rc->cplxr_sum += bits * qp2qscale(rc->qpa) / rc->last_rceq;
+			rc->wanted_bits_window+=rc->tbits*1.0/(rc->fps-rc->i_frame%(int)rc->fps-1);
+			printf("bpf= %f ",rc->tbits*1.0/(rc->fps-rc->i_frame%(int)rc->fps-1));
+		}
+		else{
+			rc->tbits=rc->bitrate;
+			rc->wanted_bits_window=rc->tbits*1.0/rc->fps;
+			rc->cplxr_sum = bits * qp2qscale(rc->qpa) / rc->last_rceq;
+			printf("bpf= %f ",rc->tbits*1.0/rc->fps);
+		}
+		fflush(stdout);
+#else
+		rc->cplxr_sum += bits * qp2qscale(rc->qpa) / rc->last_rceq;
+		rc->wanted_bits+=rc->bitrate/rc->fps;
 		rc->wanted_bits_window += rc->bitrate / rc->fps;
+#endif
+		rc->cplxr_sum *= rc->cbr_decay;
 		rc->wanted_bits_window *= rc->cbr_decay;
+
 
 		rc->accum_p_qp   *= .95;
 		rc->accum_p_norm *= .95;
@@ -2512,7 +2643,8 @@ void x264_ratecontrol_delete( x264_ratecontrol_t *rc, x264_param_t* pParam )
 	free( rc->i_row_bits_last);
 #endif
 	
-	free(rc->lcu_sad);
+	free(rc->lcu_satd);
+	free(rc->lcu_bits);
 	
 
 }

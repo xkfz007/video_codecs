@@ -2224,8 +2224,11 @@ Void TEncGOP::xCalculateAddPSNR( TComPic* pcPic, TComPicYuv* pcPicD, const Acces
          pcSlice->getPOC(),
          pcSlice->getTLayer(),
          c,
-  //       pcSlice->getSliceQpBase(),
-  m_pcSliceEncoder->m_pcRateCtrl->qpa,
+#ifndef X264_RATECONTROL_2006
+		 (double)pcSlice->getSliceQpBase(),
+#else
+		 m_pcSliceEncoder->m_pcRateCtrl->qpa,
+#endif
          pcSlice->getSliceQp(),
          uibits );
 #else
