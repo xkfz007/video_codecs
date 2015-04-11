@@ -244,6 +244,14 @@ private:
                TextType    eTType, 
                UInt        uiAbsPartIdx );
 
+  Void xQuant2( TComDataCU* pcCU, 
+               Int*        pSrc, 
+               TCoeff*     pDes, 
+               Int         iWidth, 
+               Int         iHeight, 
+               UInt&       uiAcSum, 
+               TextType    eTType, 
+               UInt        uiAbsPartIdx );
   // RDOQ functions
   
   Void           xRateDistOptQuant ( TComDataCU*                     pcCU,
@@ -281,13 +289,15 @@ __inline UInt              xGetCodedLevel  ( Double&                         rd6
                                              UInt                            c2Idx,  
                                              Int                             iQBits,
                                              Double                          dTemp,
-                                             Bool                            bLast        ) const;
+                                             Bool                            bLast       
+											 , TextType eTType) const;
 __inline Int xGetICRate  ( UInt                            uiAbsLevel,
                            UShort                          ui16CtxNumOne,
                            UShort                          ui16CtxNumAbs,
                            UShort                          ui16AbsGoRice
                          , UInt                            c1Idx,
                            UInt                            c2Idx
+						   , TextType eTType
                          ) const;
   __inline Double xGetRateLast     ( const UInt                      uiPosX,
                                      const UInt                      uiPosY ) const;

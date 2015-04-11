@@ -1565,8 +1565,9 @@ TEncSearch::xRecurIntraCodingQT( TComDataCU*  pcCU,
       {
         uiSingleCbfY = pcCU->getCbf( uiAbsPartIdx, TEXT_LUMA, uiTrDepth );
       }
+#if _HFZ_COMMENT_
       //----- code chroma blocks with given intra prediction mode and store Cbf-----
-      if( !bLumaOnly )
+      if( !bLumaOnly )//Never
       {
         pcCU ->setTransformSkipSubParts ( 0, TEXT_CHROMA_U, uiAbsPartIdx, uiFullDepth ); 
         pcCU ->setTransformSkipSubParts ( 0, TEXT_CHROMA_V, uiAbsPartIdx, uiFullDepth ); 
@@ -1578,6 +1579,7 @@ TEncSearch::xRecurIntraCodingQT( TComDataCU*  pcCU,
           uiSingleCbfV = pcCU->getCbf( uiAbsPartIdx, TEXT_CHROMA_V, uiTrDepth );
         }
       }
+#endif
       //----- determine rate and r-d cost -----
       UInt uiSingleBits = xGetIntraBitsQT( pcCU, uiTrDepth, uiAbsPartIdx, true, !bLumaOnly, false );
       if(m_pcEncCfg->getRDpenalty() && (uiLog2TrSize==5) && !isIntraSlice)
@@ -1593,12 +1595,14 @@ TEncSearch::xRecurIntraCodingQT( TComDataCU*  pcCU,
     //----- store full entropy coding status, load original entropy coding status -----
     if( m_bUseSBACRD )
     {
-      if( bCheckFull )
+#if _HFZ_COMMENT_
+      if( bCheckFull )//Never
       {
         m_pcRDGoOnSbacCoder->store( m_pppcRDSbacCoder[ uiFullDepth ][ CI_QT_TRAFO_TEST ] );
         m_pcRDGoOnSbacCoder->load ( m_pppcRDSbacCoder[ uiFullDepth ][ CI_QT_TRAFO_ROOT ] );
       }
       else
+#endif
       {
         m_pcRDGoOnSbacCoder->store( m_pppcRDSbacCoder[ uiFullDepth ][ CI_QT_TRAFO_ROOT ] );
       }
@@ -1623,11 +1627,13 @@ TEncSearch::xRecurIntraCodingQT( TComDataCU*  pcCU,
 #endif
 
       uiSplitCbfY |= pcCU->getCbf( uiAbsPartIdxSub, TEXT_LUMA, uiTrDepth + 1 );
+#if _HFZ_COMMENT_
       if(!bLumaOnly)
       {
         uiSplitCbfU |= pcCU->getCbf( uiAbsPartIdxSub, TEXT_CHROMA_U, uiTrDepth + 1 );
         uiSplitCbfV |= pcCU->getCbf( uiAbsPartIdxSub, TEXT_CHROMA_V, uiTrDepth + 1 );
       }
+#endif
     }
 
     for( UInt uiOffs = 0; uiOffs < 4 * uiQPartsDiv; uiOffs++ )
@@ -1660,6 +1666,7 @@ TEncSearch::xRecurIntraCodingQT( TComDataCU*  pcCU,
       dRDCost  += dSplitCost;
       return;
     }
+#if _HFZ_COMMENT_
     //----- set entropy coding status -----
     if( m_bUseSBACRD )
     {
@@ -1719,6 +1726,7 @@ TEncSearch::xRecurIntraCodingQT( TComDataCU*  pcCU,
         }
       }
     }
+#endif
   }
   ruiDistY += uiSingleDistY;
   ruiDistC += uiSingleDistC;
@@ -2616,6 +2624,7 @@ TEncSearch::estIntraPredQT( TComDataCU* pcCU,
       Double dPUCost   = 0.0;
       xRecurIntraCodingQT( pcCU, uiInitTrDepth, uiPartOffset, bLumaOnly, pcOrgYuv, pcPredYuv, pcResiYuv, uiPUDistY, uiPUDistC, false, dPUCost );
       
+//	  printf("BestPUCost=%f PUCost=%f\n",dBestPUCost,dPUCost);
       // check r-d cost
       if( dPUCost < dBestPUCost )
       {

@@ -75,7 +75,9 @@ public:
     m_ucState = m_aucNextStateMPS[ m_ucState ];
   }
   
-  Int getEntropyBits(Short val) { return m_entropyBits[m_ucState ^ val]; }
+  Int getEntropyBits(Short val) { 
+	//  printf("state=%d val=%d\n",m_ucState,val);
+	  return m_entropyBits[m_ucState ^ val]; }
     
 #if FAST_BIT_EST
   Void update( Int binVal )

@@ -42,7 +42,37 @@
 
 using namespace std;
 namespace po = df::program_options_lite;
-
+#if _HFZ_CABAC_
+ContextModel         g_contextModels[MAX_NUM_CTX_MOD];
+Int                  g_numContextModels=0;
+ContextModel3DBuffer  g_cCUSplitFlagSCModel       ( 1,             1, NUM_SPLIT_FLAG_CTX            , g_contextModels + g_numContextModels, g_numContextModels );
+ContextModel3DBuffer  g_cCUSkipFlagSCModel        ( 1,             1, NUM_SKIP_FLAG_CTX             , g_contextModels + g_numContextModels, g_numContextModels);
+ContextModel3DBuffer  g_cCUMergeFlagExtSCModel    ( 1,             1, NUM_MERGE_FLAG_EXT_CTX        , g_contextModels + g_numContextModels, g_numContextModels);
+ContextModel3DBuffer  g_cCUMergeIdxExtSCModel     ( 1,             1, NUM_MERGE_IDX_EXT_CTX         , g_contextModels + g_numContextModels, g_numContextModels);
+ContextModel3DBuffer  g_cCUPartSizeSCModel        ( 1,             1, NUM_PART_SIZE_CTX             , g_contextModels + g_numContextModels, g_numContextModels);
+ContextModel3DBuffer  g_cCUPredModeSCModel        ( 1,             1, NUM_PRED_MODE_CTX             , g_contextModels + g_numContextModels, g_numContextModels);
+ContextModel3DBuffer  g_cCUIntraPredSCModel       ( 1,             1, NUM_ADI_CTX                   , g_contextModels + g_numContextModels, g_numContextModels);
+ContextModel3DBuffer  g_cCUChromaPredSCModel      ( 1,             1, NUM_CHROMA_PRED_CTX           , g_contextModels + g_numContextModels, g_numContextModels);
+ContextModel3DBuffer  g_cCUDeltaQpSCModel         ( 1,             1, NUM_DELTA_QP_CTX              , g_contextModels + g_numContextModels, g_numContextModels);
+ContextModel3DBuffer  g_cCUInterDirSCModel        ( 1,             1, NUM_INTER_DIR_CTX             , g_contextModels + g_numContextModels, g_numContextModels);
+ContextModel3DBuffer  g_cCURefPicSCModel          ( 1,             1, NUM_REF_NO_CTX                , g_contextModels + g_numContextModels, g_numContextModels);
+ContextModel3DBuffer  g_cCUMvdSCModel             ( 1,             1, NUM_MV_RES_CTX                , g_contextModels + g_numContextModels, g_numContextModels);
+ContextModel3DBuffer  g_cCUQtCbfSCModel           ( 1,             2, NUM_QT_CBF_CTX                , g_contextModels + g_numContextModels, g_numContextModels);
+ContextModel3DBuffer  g_cCUTransSubdivFlagSCModel ( 1,             1, NUM_TRANS_SUBDIV_FLAG_CTX     , g_contextModels + g_numContextModels, g_numContextModels);
+ContextModel3DBuffer  g_cCUQtRootCbfSCModel       ( 1,             1, NUM_QT_ROOT_CBF_CTX           , g_contextModels + g_numContextModels, g_numContextModels);
+ContextModel3DBuffer  g_cCUSigCoeffGroupSCModel   ( 1,             2, NUM_SIG_CG_FLAG_CTX           , g_contextModels + g_numContextModels, g_numContextModels);
+ContextModel3DBuffer  g_cCUSigSCModel             ( 1,             1, NUM_SIG_FLAG_CTX              , g_contextModels + g_numContextModels, g_numContextModels);
+ContextModel3DBuffer  g_cCuCtxLastX               ( 1,             2, NUM_CTX_LAST_FLAG_XY          , g_contextModels + g_numContextModels, g_numContextModels);
+ContextModel3DBuffer  g_cCuCtxLastY               ( 1,             2, NUM_CTX_LAST_FLAG_XY          , g_contextModels + g_numContextModels, g_numContextModels);
+ContextModel3DBuffer  g_cCUOneSCModel             ( 1,             1, NUM_ONE_FLAG_CTX              , g_contextModels + g_numContextModels, g_numContextModels);
+ContextModel3DBuffer  g_cCUAbsSCModel             ( 1,             1, NUM_ABS_FLAG_CTX              , g_contextModels + g_numContextModels, g_numContextModels);
+ContextModel3DBuffer  g_cMVPIdxSCModel            ( 1,             1, NUM_MVP_IDX_CTX               , g_contextModels + g_numContextModels, g_numContextModels);
+ContextModel3DBuffer  g_cCUAMPSCModel             ( 1,             1, NUM_CU_AMP_CTX                , g_contextModels + g_numContextModels, g_numContextModels);
+ContextModel3DBuffer  g_cSaoMergeSCModel          ( 1,             1, NUM_SAO_MERGE_FLAG_CTX   , g_contextModels + g_numContextModels, g_numContextModels);
+ContextModel3DBuffer  g_cSaoTypeIdxSCModel        ( 1,             1, NUM_SAO_TYPE_IDX_CTX          , g_contextModels + g_numContextModels, g_numContextModels);
+ContextModel3DBuffer  g_cTransformSkipSCModel     ( 1,             2, NUM_TRANSFORMSKIP_FLAG_CTX    , g_contextModels + g_numContextModels, g_numContextModels);
+ContextModel3DBuffer  g_CUTransquantBypassFlagSCModel( 1,          1, NUM_CU_TRANSQUANT_BYPASS_FLAG_CTX, g_contextModels + g_numContextModels, g_numContextModels);
+#endif
 //! \ingroup TAppEncoder
 //! \{
 

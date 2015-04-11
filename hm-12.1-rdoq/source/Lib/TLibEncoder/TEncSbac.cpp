@@ -93,9 +93,42 @@ TEncSbac::~TEncSbac()
 // ====================================================================================================================
 // Public member functions
 // ====================================================================================================================
+#if _HFZ_CABAC_
+extern  ContextModel3DBuffer g_cCUSplitFlagSCModel;
+extern   ContextModel3DBuffer g_cCUSkipFlagSCModel;
+extern   ContextModel3DBuffer g_cCUMergeFlagExtSCModel;
+extern   ContextModel3DBuffer g_cCUMergeIdxExtSCModel;
+extern   ContextModel3DBuffer g_cCUPartSizeSCModel;
+extern   ContextModel3DBuffer g_cCUPredModeSCModel;
+extern   ContextModel3DBuffer g_cCUIntraPredSCModel;
+extern   ContextModel3DBuffer g_cCUChromaPredSCModel;
+extern   ContextModel3DBuffer g_cCUDeltaQpSCModel;
+extern   ContextModel3DBuffer g_cCUInterDirSCModel;
+extern   ContextModel3DBuffer g_cCURefPicSCModel;
+extern   ContextModel3DBuffer g_cCUMvdSCModel;
+extern   ContextModel3DBuffer g_cCUQtCbfSCModel;
+extern   ContextModel3DBuffer g_cCUTransSubdivFlagSCModel;
+extern   ContextModel3DBuffer g_cCUQtRootCbfSCModel;
 
+extern   ContextModel3DBuffer g_cCUSigCoeffGroupSCModel;
+extern   ContextModel3DBuffer g_cCUSigSCModel;
+extern   ContextModel3DBuffer g_cCuCtxLastX;
+extern   ContextModel3DBuffer g_cCuCtxLastY;
+extern   ContextModel3DBuffer g_cCUOneSCModel;
+extern   ContextModel3DBuffer g_cCUAbsSCModel;
+
+extern   ContextModel3DBuffer g_cMVPIdxSCModel;
+
+extern   ContextModel3DBuffer g_cCUAMPSCModel;
+extern   ContextModel3DBuffer g_cSaoMergeSCModel;
+extern   ContextModel3DBuffer g_cSaoTypeIdxSCModel;
+extern   ContextModel3DBuffer g_cTransformSkipSCModel;
+extern   ContextModel3DBuffer g_CUTransquantBypassFlagSCModel;
+
+#endif
 Void TEncSbac::resetEntropy           ()
 {
+ // printf("%s\n",__FUNCTION__);
   Int  iQp              = m_pcSlice->getSliceQp();
   SliceType eSliceType  = m_pcSlice->getSliceType();
   
@@ -137,6 +170,36 @@ Void TEncSbac::resetEntropy           ()
   m_uiLastQp = iQp;
   
   m_pcBinIf->start();
+#if _HFZ_CABAC_
+  g_cCUSplitFlagSCModel.initBuffer       ( eSliceType, iQp, (UChar*)INIT_SPLIT_FLAG );
+
+  g_cCUSkipFlagSCModel.initBuffer        ( eSliceType, iQp, (UChar*)INIT_SKIP_FLAG );
+  g_cCUMergeFlagExtSCModel.initBuffer    ( eSliceType, iQp, (UChar*)INIT_MERGE_FLAG_EXT);
+  g_cCUMergeIdxExtSCModel.initBuffer     ( eSliceType, iQp, (UChar*)INIT_MERGE_IDX_EXT);
+  g_cCUPartSizeSCModel.initBuffer        ( eSliceType, iQp, (UChar*)INIT_PART_SIZE );
+  g_cCUAMPSCModel.initBuffer             ( eSliceType, iQp, (UChar*)INIT_CU_AMP_POS );
+  g_cCUPredModeSCModel.initBuffer        ( eSliceType, iQp, (UChar*)INIT_PRED_MODE );
+  g_cCUIntraPredSCModel.initBuffer       ( eSliceType, iQp, (UChar*)INIT_INTRA_PRED_MODE );
+  g_cCUChromaPredSCModel.initBuffer      ( eSliceType, iQp, (UChar*)INIT_CHROMA_PRED_MODE );
+  g_cCUInterDirSCModel.initBuffer        ( eSliceType, iQp, (UChar*)INIT_INTER_DIR );
+  g_cCUMvdSCModel.initBuffer             ( eSliceType, iQp, (UChar*)INIT_MVD );
+  g_cCURefPicSCModel.initBuffer          ( eSliceType, iQp, (UChar*)INIT_REF_PIC );
+  g_cCUDeltaQpSCModel.initBuffer         ( eSliceType, iQp, (UChar*)INIT_DQP );
+  g_cCUQtCbfSCModel.initBuffer           ( eSliceType, iQp, (UChar*)INIT_QT_CBF );
+  g_cCUQtRootCbfSCModel.initBuffer       ( eSliceType, iQp, (UChar*)INIT_QT_ROOT_CBF );
+  g_cCUSigCoeffGroupSCModel.initBuffer   ( eSliceType, iQp, (UChar*)INIT_SIG_CG_FLAG );
+  g_cCUSigSCModel.initBuffer             ( eSliceType, iQp, (UChar*)INIT_SIG_FLAG );
+  g_cCuCtxLastX.initBuffer               ( eSliceType, iQp, (UChar*)INIT_LAST );
+  g_cCuCtxLastY.initBuffer               ( eSliceType, iQp, (UChar*)INIT_LAST );
+  g_cCUOneSCModel.initBuffer             ( eSliceType, iQp, (UChar*)INIT_ONE_FLAG );
+  g_cCUAbsSCModel.initBuffer             ( eSliceType, iQp, (UChar*)INIT_ABS_FLAG );
+  g_cMVPIdxSCModel.initBuffer            ( eSliceType, iQp, (UChar*)INIT_MVP_IDX );
+  g_cCUTransSubdivFlagSCModel.initBuffer ( eSliceType, iQp, (UChar*)INIT_TRANS_SUBDIV_FLAG );
+  g_cSaoMergeSCModel.initBuffer      ( eSliceType, iQp, (UChar*)INIT_SAO_MERGE_FLAG );
+  g_cSaoTypeIdxSCModel.initBuffer        ( eSliceType, iQp, (UChar*)INIT_SAO_TYPE_IDX );
+  g_cTransformSkipSCModel.initBuffer     ( eSliceType, iQp, (UChar*)INIT_TRANSFORMSKIP_FLAG );
+  g_CUTransquantBypassFlagSCModel.initBuffer( eSliceType, iQp, (UChar*)INIT_CU_TRANSQUANT_BYPASS_FLAG );
+#endif
   
   return;
 }
@@ -237,6 +300,37 @@ Void TEncSbac::updateContextTables( SliceType eSliceType, Int iQp, Bool bExecute
   m_cTransformSkipSCModel.initBuffer     ( eSliceType, iQp, (UChar*)INIT_TRANSFORMSKIP_FLAG );
   m_CUTransquantBypassFlagSCModel.initBuffer( eSliceType, iQp, (UChar*)INIT_CU_TRANSQUANT_BYPASS_FLAG );
   m_pcBinIf->start();
+#if _HFZ_CABAC_
+
+  g_cCUSplitFlagSCModel.initBuffer       ( eSliceType, iQp, (UChar*)INIT_SPLIT_FLAG );
+  
+  g_cCUSkipFlagSCModel.initBuffer        ( eSliceType, iQp, (UChar*)INIT_SKIP_FLAG );
+  g_cCUMergeFlagExtSCModel.initBuffer    ( eSliceType, iQp, (UChar*)INIT_MERGE_FLAG_EXT);
+  g_cCUMergeIdxExtSCModel.initBuffer     ( eSliceType, iQp, (UChar*)INIT_MERGE_IDX_EXT);
+  g_cCUPartSizeSCModel.initBuffer        ( eSliceType, iQp, (UChar*)INIT_PART_SIZE );
+  g_cCUAMPSCModel.initBuffer             ( eSliceType, iQp, (UChar*)INIT_CU_AMP_POS );
+  g_cCUPredModeSCModel.initBuffer        ( eSliceType, iQp, (UChar*)INIT_PRED_MODE );
+  g_cCUIntraPredSCModel.initBuffer       ( eSliceType, iQp, (UChar*)INIT_INTRA_PRED_MODE );
+  g_cCUChromaPredSCModel.initBuffer      ( eSliceType, iQp, (UChar*)INIT_CHROMA_PRED_MODE );
+  g_cCUInterDirSCModel.initBuffer        ( eSliceType, iQp, (UChar*)INIT_INTER_DIR );
+  g_cCUMvdSCModel.initBuffer             ( eSliceType, iQp, (UChar*)INIT_MVD );
+  g_cCURefPicSCModel.initBuffer          ( eSliceType, iQp, (UChar*)INIT_REF_PIC );
+  g_cCUDeltaQpSCModel.initBuffer         ( eSliceType, iQp, (UChar*)INIT_DQP );
+  g_cCUQtCbfSCModel.initBuffer           ( eSliceType, iQp, (UChar*)INIT_QT_CBF );
+  g_cCUQtRootCbfSCModel.initBuffer       ( eSliceType, iQp, (UChar*)INIT_QT_ROOT_CBF );
+  g_cCUSigCoeffGroupSCModel.initBuffer   ( eSliceType, iQp, (UChar*)INIT_SIG_CG_FLAG );
+  g_cCUSigSCModel.initBuffer             ( eSliceType, iQp, (UChar*)INIT_SIG_FLAG );
+  g_cCuCtxLastX.initBuffer               ( eSliceType, iQp, (UChar*)INIT_LAST );
+  g_cCuCtxLastY.initBuffer               ( eSliceType, iQp, (UChar*)INIT_LAST );
+  g_cCUOneSCModel.initBuffer             ( eSliceType, iQp, (UChar*)INIT_ONE_FLAG );
+  g_cCUAbsSCModel.initBuffer             ( eSliceType, iQp, (UChar*)INIT_ABS_FLAG );
+  g_cMVPIdxSCModel.initBuffer            ( eSliceType, iQp, (UChar*)INIT_MVP_IDX );
+  g_cCUTransSubdivFlagSCModel.initBuffer ( eSliceType, iQp, (UChar*)INIT_TRANS_SUBDIV_FLAG );
+  g_cSaoMergeSCModel.initBuffer      ( eSliceType, iQp, (UChar*)INIT_SAO_MERGE_FLAG );
+  g_cSaoTypeIdxSCModel.initBuffer        ( eSliceType, iQp, (UChar*)INIT_SAO_TYPE_IDX );
+  g_cTransformSkipSCModel.initBuffer     ( eSliceType, iQp, (UChar*)INIT_TRANSFORMSKIP_FLAG );
+  g_CUTransquantBypassFlagSCModel.initBuffer( eSliceType, iQp, (UChar*)INIT_CU_TRANSQUANT_BYPASS_FLAG );
+#endif
 }
 
 Void TEncSbac::codeVPS( TComVPS* pcVPS )
@@ -1240,6 +1334,9 @@ Void TEncSbac::codeCoeffNxN( TComDataCU* pcCU, TCoeff* pcCoef, UInt uiAbsPartIdx
       }
       c1 = 1;
       ContextModel *baseCtxMod = ( eTType==TEXT_LUMA ) ? m_cCUOneSCModel.get( 0, 0 ) + 4 * uiCtxSet : m_cCUOneSCModel.get( 0, 0 ) + NUM_ONE_FLAG_CTX_LUMA + 4 * uiCtxSet;
+#if _HFZ_CABAC_
+      ContextModel *baseCtxMod2 = ( eTType==TEXT_LUMA ) ? g_cCUOneSCModel.get( 0, 0 ) + 4 * uiCtxSet : g_cCUOneSCModel.get( 0, 0 ) + NUM_ONE_FLAG_CTX_LUMA + 4 * uiCtxSet;
+#endif
       
       Int numC1Flag = min(numNonZero, C1FLAG_NUMBER);
       Int firstC2FlagIdx = -1;
@@ -1247,6 +1344,9 @@ Void TEncSbac::codeCoeffNxN( TComDataCU* pcCU, TCoeff* pcCoef, UInt uiAbsPartIdx
       {
         UInt uiSymbol = absCoeff[ idx ] > 1;
         m_pcBinIf->encodeBin( uiSymbol, baseCtxMod[c1] );
+#if _HFZ_CABAC_
+		baseCtxMod2[c1].update(uiSymbol);
+#endif
         if( uiSymbol )
         {
           c1 = 0;
@@ -1266,10 +1366,16 @@ Void TEncSbac::codeCoeffNxN( TComDataCU* pcCU, TCoeff* pcCoef, UInt uiAbsPartIdx
       {
 
         baseCtxMod = ( eTType==TEXT_LUMA ) ? m_cCUAbsSCModel.get( 0, 0 ) + uiCtxSet : m_cCUAbsSCModel.get( 0, 0 ) + NUM_ABS_FLAG_CTX_LUMA + uiCtxSet;
+#if _HFZ_CABAC_
+        baseCtxMod2 = ( eTType==TEXT_LUMA ) ? g_cCUAbsSCModel.get( 0, 0 ) + uiCtxSet : g_cCUAbsSCModel.get( 0, 0 ) + NUM_ABS_FLAG_CTX_LUMA + uiCtxSet;
+#endif
         if ( firstC2FlagIdx != -1)
         {
           UInt symbol = absCoeff[ firstC2FlagIdx ] > 2;
           m_pcBinIf->encodeBin( symbol, baseCtxMod[0] );
+#if _HFZ_CABAC_
+		  baseCtxMod2[0].update(symbol);
+#endif
         }
       }
       
