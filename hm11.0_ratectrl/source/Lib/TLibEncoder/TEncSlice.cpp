@@ -375,8 +375,14 @@ Void TEncSlice::initEncSlice( TComPic* pcPic, Int pocLast, Int pocCurr, Int iNum
  }
 #endif
 	 m_pcRateCtrl->qp_factor=m_pcCfg->getGOPEntry(iGOPid).m_QPFactor;
-	 m_pcRateCtrl->qp_offset=eSliceType==SLICE_TYPE_I?0:m_pcCfg->getGOPEntry(iGOPid).m_QPOffset;
-	 m_pcRateCtrl->gop_id=iGOPid;
+	 m_pcRateCtrl->qp_offset=eSliceType==I_SLICE?0:m_pcCfg->getGOPEntry(iGOPid).m_QPOffset;
+	 m_pcRateCtrl->gop_id=iGOPid;//eSliceType==I_SLICE?-1:iGOPid;
+
+	 m_pcRateCtrl->slice_type=eSliceType;
+	 if (eSliceType== B_SLICE &&m_pcCfg -> getGOPEntry( iGOPid ).m_sliceType == 'P')
+    {
+		m_pcRateCtrl->slice_type=P_SLICE;
+    }
 	  x264_ratecontrol_start( m_pcRateCtrl, m_pcParam, eSliceType, 0);
 	  dQP = x264_ratecontrol_qp( m_pcRateCtrl );
   }

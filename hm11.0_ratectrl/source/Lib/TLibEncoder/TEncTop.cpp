@@ -137,34 +137,6 @@ void    x264_param_default( x264_param_t *param )
 	param->rc.f_qblur = 0.5;
 	param->rc.f_complexity_blur = 20;
 
-	/* Log */
-//	param->pf_log = x264_log_default;
-	param->p_log_private = NULL;
-	param->i_log_level = X264_LOG_INFO;
-
-	/* */
-	param->analyse.intra = X264_ANALYSE_I4x4 | X264_ANALYSE_I8x8;
-	param->analyse.inter = X264_ANALYSE_I4x4 | X264_ANALYSE_I8x8
-		| X264_ANALYSE_PSUB16x16 | X264_ANALYSE_BSUB16x16;
-	param->analyse.i_direct_mv_pred = X264_DIRECT_PRED_SPATIAL;
-	param->analyse.i_me_method = X264_ME_HEX;
-	param->analyse.i_me_range = 16;
-	param->analyse.i_subpel_refine = 5;
-	param->analyse.b_chroma_me = 1;
-	param->analyse.i_mv_range = -1; // set from level_idc
-	param->analyse.i_chroma_qp_offset = 0;
-	param->analyse.b_fast_pskip = 1;
-	param->analyse.b_psnr = 1;
-#if 0
-	param->i_cqm_preset = X264_CQM_FLAT;
-	memset( param->cqm_4iy, 16, 16 );
-	memset( param->cqm_4ic, 16, 16 );
-	memset( param->cqm_4py, 16, 16 );
-	memset( param->cqm_4pc, 16, 16 );
-	memset( param->cqm_8iy, 16, 64 );
-	memset( param->cqm_8py, 16, 64 );
-#endif
-
 	param->b_repeat_headers = 1;
 	param->b_aud = 0;
 }

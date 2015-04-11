@@ -397,87 +397,12 @@ private:
 };
 #elif defined(X264_RATECONTROL_2006)
 
-enum slice_type_e
-{
-	SLICE_TYPE_P  = 0,
-	SLICE_TYPE_B  = 1,
-	SLICE_TYPE_I  = 2,
-};
-
-/* CPU flags
-*/
-#define X264_CPU_MMX        0x000001    /* mmx */
-#define X264_CPU_MMXEXT     0x000002    /* mmx-ext*/
-#define X264_CPU_SSE        0x000004    /* sse */
-#define X264_CPU_SSE2       0x000008    /* sse 2 */
-#define X264_CPU_3DNOW      0x000010    /* 3dnow! */
-#define X264_CPU_3DNOWEXT   0x000020    /* 3dnow! ext */
-#define X264_CPU_ALTIVEC    0x000040    /* altivec */
-
-/* Analyse flags
-*/
-#define X264_ANALYSE_I4x4       0x0001  /* Analyse i4x4 */
-#define X264_ANALYSE_I8x8       0x0002  /* Analyse i8x8 (requires 8x8 transform) */
-#define X264_ANALYSE_PSUB16x16  0x0010  /* Analyse p16x8, p8x16 and p8x8 */
-#define X264_ANALYSE_PSUB8x8    0x0020  /* Analyse p8x4, p4x8, p4x4 */
-#define X264_ANALYSE_BSUB16x16  0x0100  /* Analyse b16x8, b8x16 and b8x8 */
-#define X264_DIRECT_PRED_NONE        0
-#define X264_DIRECT_PRED_SPATIAL     1
-#define X264_DIRECT_PRED_TEMPORAL    2
-#define X264_DIRECT_PRED_AUTO        3
-#define X264_ME_DIA                  0
-#define X264_ME_HEX                  1
-#define X264_ME_UMH                  2
-#define X264_ME_ESA                  3
-#define X264_CQM_FLAT                0
-#define X264_CQM_JVT                 1
-#define X264_CQM_CUSTOM              2
-
-static const char * const x264_direct_pred_names[] = { "none", "spatial", "temporal", "auto", 0 };
-static const char * const x264_motion_est_names[] = { "dia", "hex", "umh", "esa", 0 };
-
-/* Colorspace type
-*/
-#define X264_CSP_MASK           0x00ff  /* */
-#define X264_CSP_NONE           0x0000  /* Invalid mode     */
-#define X264_CSP_I420           0x0001  /* yuv 4:2:0 planar */
-#define X264_CSP_I422           0x0002  /* yuv 4:2:2 planar */
-#define X264_CSP_I444           0x0003  /* yuv 4:4:4 planar */
-#define X264_CSP_YV12           0x0004  /* yuv 4:2:0 planar */
-#define X264_CSP_YUYV           0x0005  /* yuv 4:2:2 packed */
-#define X264_CSP_RGB            0x0006  /* rgb 24bits       */
-#define X264_CSP_BGR            0x0007  /* bgr 24bits       */
-#define X264_CSP_BGRA           0x0008  /* bgr 32bits       */
-#define X264_CSP_VFLIP          0x1000  /* */
-
-/* Slice type
-*/
-#define X264_TYPE_AUTO          0x0000  /* Let x264 choose the right type */
-#define X264_TYPE_IDR           0x0001
-#define X264_TYPE_I             0x0002
-#define X264_TYPE_P             0x0003
-#define X264_TYPE_BREF          0x0004  /* Non-disposable B-frame */
-#define X264_TYPE_B             0x0005
-#define IS_X264_TYPE_I(x) ((x)==X264_TYPE_I || (x)==X264_TYPE_IDR)
-#define IS_X264_TYPE_B(x) ((x)==X264_TYPE_B || (x)==X264_TYPE_BREF)
-
-/* Log level
-*/
-#define X264_LOG_NONE          (-1)
-#define X264_LOG_ERROR          0
-#define X264_LOG_WARNING        1
-#define X264_LOG_INFO           2
-#define X264_LOG_DEBUG          3
 
 #define _NEW_SATD_EST_ 1
 #define RC_P_WINDOW 8
 #define GOPSIZE 3 //gopsize+1
 #define _USE_STD_PRED_ 1
-#define _USE_QPOFFSET_ 0
-#define _USE_LCU_ 0
-#define _USE_BITS_ADJUST_ 1
-#define _USE_DIFF_CONDITION_ 0
-#define _USE_MY_CONDITION 0
+#define _USE_BITS_ADJUST_ 0
 #define _NO_PRED_INIT_ 1
 #define _USE_CLIPSCALE_ 0
 #define _USE_BITS_ALLOC1_ 0
@@ -497,13 +422,6 @@ static const char * const x264_motion_est_names[] = { "dia", "hex", "umh", "esa"
 #define X264_RC_CRF                  1 //Constant rate factor, one pass mode that is optimal if the user doesn't desire a specific bitrate,but specify quality instead.
 #define X264_RC_ABR                  2 //Average bitrate, One pass scheme
 
-typedef struct
-{
-	int i_start, i_end;
-	int b_force_qp;
-	int i_qp;
-	float f_bitrate_factor;
-} x264_zone_t;
 
 typedef struct
 {
@@ -530,49 +448,6 @@ typedef struct
 
 	int         b_cabac;
 	int         i_cabac_init_idc;
-
-#if 0
-	int         i_cqm_preset;
-	char        *psz_cqm_file;      /* JM format */
-	uint8_t     cqm_4iy[16];        /* used only if i_cqm_preset == X264_CQM_CUSTOM */
-	uint8_t     cqm_4ic[16];
-	uint8_t     cqm_4py[16];
-	uint8_t     cqm_4pc[16];
-	uint8_t     cqm_8iy[64];
-	uint8_t     cqm_8py[64];
-#endif
-
-	/* Log */
-	void        (*pf_log)( void *, int i_level, const char *psz, va_list );
-	void        *p_log_private;
-	int         i_log_level;
-	int         b_visualize;
-
-	/* Encoder analyser parameters */
-	struct
-	{
-		unsigned int intra;     /* intra partitions */
-		unsigned int inter;     /* inter partitions */
-
-		int          b_transform_8x8;
-		int          b_weighted_bipred; /* implicit weighting for B-frames */
-		int          i_direct_mv_pred; /* spatial vs temporal mv prediction */
-		int          i_chroma_qp_offset;
-
-		int          i_me_method; /* motion estimation algorithm to use (X264_ME_*) */
-		int          i_me_range; /* integer pixel motion estimation search range (from predicted mv) */
-		int          i_mv_range; /* maximum length of a mv (in pixels) */
-		int          i_subpel_refine; /* subpixel motion estimation quality */
-		int          b_bidir_me; /* jointly optimize both MVs in B-frames */
-		int          b_chroma_me; /* chroma ME for subpel and mode decision in P-frames */
-		int          b_bframe_rdo; /* RD based mode decision for B-frames */
-		int          b_mixed_references; /* allow each mb partition in P-frames to have it's own reference number */
-		int          i_trellis;  /* trellis RD quantization */
-		int          b_fast_pskip; /* early SKIP detection on P-frames */
-		int          i_noise_reduction; /* adaptive pseudo-deadzone */
-
-		int          b_psnr;    /* Do we compute PSNR stats (save a few % of cpu) */
-	} analyse;
 
 	/* Rate control parameters */
 	struct
@@ -612,33 +487,6 @@ typedef struct
 	int picHeightInBU;
 } x264_param_t;
 
-typedef struct
-{
-	int pict_type;
-    int frame_type;
-	int kept_as_ref;
-	float qscale;
-	int mv_bits;
-	int i_tex_bits;
-	int p_tex_bits;
-	int tex_bits;
-	int misc_bits;
-    uint64_t expected_bits; /*total expected bits up to the current frame (current one excluded)*/
-    double expected_vbv;
-    double new_qscale;
-	int new_qp;
-	int i_count;
-	int p_count;
-	int s_count;
-	float blurred_complexity;
-	char direct_mode;
-    int16_t weight[3][2];
-    int16_t i_weight_denom[2];
-    int refcount[16];
-    int refs;
-    int64_t i_duration;
-    int64_t i_cpb_duration;
-} ratecontrol_entry_t;
 
 typedef struct
 {
@@ -668,8 +516,6 @@ struct x264_ratecontrol_t
 	int skip_lcu_num;
 	int start_flag;
 
-	/* current frame */
-	ratecontrol_entry_t *rce;
 	int qp;                     /* qp for current frame */
 	float qpm;                    /* qp for current macroblock */
 	float qpa;                  /* average of macroblocks' qp */
@@ -717,8 +563,6 @@ struct x264_ratecontrol_t
 	double last_rceq_lcu;
 	double last_qscale_lcu;
 
-	int num_entries;            /* number of ratecontrol_entry_ts */
-	ratecontrol_entry_t *entry; /* FIXME: copy needed data and free this once init is done */
 	double last_qscale;
 //	double last_qscale2;
 	double last_qscale_for[3];  /* last qscale for a specific pict type, used for max_diff & ipb factor stuff  */
@@ -789,9 +633,6 @@ struct x264_ratecontrol_t
 #endif
 
 };
-
-#define MAX_DELTA_QP    2
-#define MAX_CUDQP_DEPTH 0 
 
 int x264_ratecontrol_new( x264_ratecontrol_t* rc, x264_param_t* pParam, int lcuwidth, int lcuheight);
 void x264_ratecontrol_delete( x264_ratecontrol_t* rc,x264_param_t* pParam );

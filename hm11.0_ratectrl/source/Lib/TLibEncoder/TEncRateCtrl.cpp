@@ -1633,7 +1633,6 @@ Void TEncRateCtrl::destroyRCGOP()
   m_encRCGOP = NULL;
 }
 #elif defined(X264_RATECONTROL_2006)
-#define x264_log
 #define log2f(x) (logf(x)/0.693147180559945f)
 #define X264_MAX(a,b) ( (a)>(b) ? (a) : (b) )
 #define X264_MIN(a,b) ( (a)<(b) ? (a) : (b) )
@@ -1642,29 +1641,13 @@ Void TEncRateCtrl::destroyRCGOP()
 * qp = h.264's quantizer
 * qscale = linearized quantizer = Lagrange multiplier
 */
-double qp_factor=0.85;
 static inline double qp2qscale(double qp)
 {
-//	return 0.85 * pow(2.0, ( qp - 12.0 ) / 6.0);
-	return qp_factor*pow(2.0,(qp-12.0)/6.0);
+	return 0.85 * pow(2.0, ( qp - 12.0 ) / 6.0);
 }
 static inline double qscale2qp(double qscale)
 {
-//	return 12.0 + 6.0 * log(qscale/0.85) / log(2.0);
-	return 12.0+6.0*log(qscale/qp_factor)/log(2.0);
-}
-
-/* Texture bitrate is not quite inversely proportional to qscale,
-* probably due the the changing number of SKIP blocks.
-* MV bits level off at about qp<=12, because the lambda used
-* for motion estimation is constant there. */
-static inline double qscale2bits(ratecontrol_entry_t *rce, double qscale)
-{
-	if(qscale<0.1)
-		qscale = 0.1;
-	return (rce->i_tex_bits + rce->p_tex_bits + .1) * pow( rce->qscale / qscale, 1.1 )
-		+ rce->mv_bits * pow( X264_MAX(rce->qscale, 12) / X264_MAX(qscale, 12), 0.5 )
-		+ rce->misc_bits;
+	return 12.0 + 6.0 * log(qscale/0.85) / log(2.0);
 }
 
 static __inline int x264_clip3( int v, int i_min, int i_max )
@@ -1686,11 +1669,8 @@ int x264_ratecontrol_new( x264_ratecontrol_t *rc, x264_param_t* pParam, int lcuw
 	rc->i_frame = 0;
 	rc->first_row = 0;
 	clip_ops=0;
-#if _USE_LCU_
-	rc->last_row = picWidthInBU*picHeightInBU-1;
-#else
+
 	rc->last_row = picHeightInBU-1;
-#endif
 	for(int i = 0 ; i<3; i++)
 		rc->i_slice_count[i] = 0;
 
@@ -1786,7 +1766,7 @@ int x264_ratecontrol_new( x264_ratecontrol_t *rc, x264_param_t* pParam, int lcuw
 		/* estimated ratio that produces a reasonable QP for the first I-frame */
         rc->cplxr_sum = .01 * pow( 7.0e5, (double)pParam->rc.f_qcompress) * pow( pParam->m_numberOfLCU, 0.5 );
         rc->wanted_bits_window = 1.0 * rc->bitrate / rc->fps;
-        rc->last_non_b_pict_type = SLICE_TYPE_I;
+        rc->last_non_b_pict_type = I_SLICE;
 
 		rc->wanted_bits=0;
 		rc->bitcost = 0;
@@ -1816,9 +1796,9 @@ int x264_ratecontrol_new( x264_ratecontrol_t *rc, x264_param_t* pParam, int lcuw
 
 	rc->ip_offset = 6.0 * log(pParam->rc.f_ip_factor) / log(2.0);
 	rc->pb_offset = 6.0 * log(pParam->rc.f_pb_factor) / log(2.0);
-	rc->qp_constant[SLICE_TYPE_P] = pParam->rc.i_qp_constant;
-	rc->qp_constant[SLICE_TYPE_I] = x264_clip3( pParam->rc.i_qp_constant - rc->ip_offset + 0.5, 0, 51 );
-	rc->qp_constant[SLICE_TYPE_B] = x264_clip3( pParam->rc.i_qp_constant + rc->pb_offset + 0.5, 0, 51 );
+	rc->qp_constant[P_SLICE] = pParam->rc.i_qp_constant;
+	rc->qp_constant[I_SLICE] = x264_clip3( pParam->rc.i_qp_constant - rc->ip_offset + 0.5, 0, 51 );
+	rc->qp_constant[B_SLICE] = x264_clip3( pParam->rc.i_qp_constant + rc->pb_offset + 0.5, 0, 51 );
 
 //	pParam->rc.i_qp_step=2;
 	rc->lstep = exp2f(pParam->rc.i_qp_step / 6.0);
@@ -1969,8 +1949,8 @@ static double clip_qscale( x264_ratecontrol_t *rcc, x264_param_t* pParam, int pi
 
 	if( rcc->b_vbv && rcc->last_satd > 0 )
 	{
-		if( ( rcc->slice_type== SLICE_TYPE_P ||
-			( rcc->slice_type== SLICE_TYPE_I && rcc->last_non_b_pict_type == SLICE_TYPE_I ) ) &&
+		if( ( rcc->slice_type== P_SLICE ||
+			( rcc->slice_type== I_SLICE && rcc->last_non_b_pict_type == I_SLICE ) ) &&
 			rcc->buffer_fill/rcc->buffer_size < 0.5 )
 		{
 			q /= x264_clip3f( 2.0*rcc->buffer_fill/rcc->buffer_size, 0.5, 1.0 );
@@ -2008,15 +1988,10 @@ LL1:
 static float rate_estimate_qscale(x264_ratecontrol_t *rcc, x264_param_t* pParam, int pict_type)
 {
 	float q=0,w;
-//	double lmin = rcc->lmin[pict_type];
-//	double lmax = rcc->lmax[pict_type];
-	//int64_t total_bits = 8*(h->stat.i_slice_size[SLICE_TYPE_I]
-	//+ h->stat.i_slice_size[SLICE_TYPE_P]
-	//+ h->stat.i_slice_size[SLICE_TYPE_B]);
-//	int64_t total_bits = rcc->bitcost;
+
 	double abr_buffer = 2 * rcc->rate_tolerance * rcc->bitrate;
 #if 0//_USE_LEVEL_P_
-	if(pict_type!=SLICE_TYPE_I){
+	if(pict_type!=I_SLICE){
 		if(rcc->gop_id==0)
 			abr_buffer*=0.1;
 		else if(rcc->gop_id==1)
@@ -2052,7 +2027,7 @@ static float rate_estimate_qscale(x264_ratecontrol_t *rcc, x264_param_t* pParam,
 		abr_buffer *= X264_MAX( 1, sqrt((double)rcc->i_frame/rcc->fps) );
 #if _USE_BITS_ALLOC2_
 		if(rcc->i_frame%(int)rcc->fps==0)
-	//	if(pict_type!=SLICE_TYPE_I&&rcc->i_frame%2==1)
+	//	if(pict_type!=I_SLICE&&rcc->i_frame%2==1)
 		{
 			rcc->bitcost_gop=0;
 			rcc->wanted_bits=0;
@@ -2070,9 +2045,9 @@ static float rate_estimate_qscale(x264_ratecontrol_t *rcc, x264_param_t* pParam,
 #endif
 
 	}
-	if( pict_type == SLICE_TYPE_I && pParam->i_keyint_max > 1
+	if( pict_type == I_SLICE && pParam->i_keyint_max > 1
 		/* should test _next_ pict type, but that isn't decided yet */
-		&& rcc->last_non_b_pict_type != SLICE_TYPE_I )
+		&& rcc->last_non_b_pict_type != I_SLICE )
 	{
 		q = qp2qscale( rcc->accum_p_qp / rcc->accum_p_norm );
 		q /= fabs( pParam->rc.f_ip_factor );
@@ -2122,7 +2097,7 @@ static float rate_estimate_qscale(x264_ratecontrol_t *rcc, x264_param_t* pParam,
 				lmin /= rcc->lstep;
 			}
 #else
-			if(rcc->last_non_b_pict_type!=SLICE_TYPE_I&&rcc->p_after_i>3)
+			if(rcc->last_non_b_pict_type!=I_SLICE&&rcc->p_after_i>3)
 			{
 			if( overflow > 1.1)//&&rcc->p_after_i>3)//rcc->i_frame>3 )
 				lmax *= rcc->lstep;
@@ -2139,15 +2114,12 @@ static float rate_estimate_qscale(x264_ratecontrol_t *rcc, x264_param_t* pParam,
 			q /= fabs( pParam->rc.f_ip_factor );
 		}
 #endif
-#if _USE_QPOFFSET_
-		q*=pow(2,rcc->qp_offset/6.0);
-#endif
 		rcc->qp_novbv = qscale2qp( q );
 
 		if(pParam->b_variable_qp)
 			q = clip_qscale(rcc, pParam, pict_type, q);
 #if _USE_LEVEL_P_
-		if(pict_type!=SLICE_TYPE_I)
+		if(pict_type!=I_SLICE)
 		{
 		double q2 = qp2qscale( rcc->accum_p_qp / rcc->accum_p_norm );
 		if(rcc->gop_id==0&&q>q2*rcc->lstep_3times)
@@ -2165,7 +2137,7 @@ static float rate_estimate_qscale(x264_ratecontrol_t *rcc, x264_param_t* pParam,
 				q/=rcc->lstep_half;
 			else if(rcc->gop_id==1) {
 				q/=rcc->lstep;
-				q/=rcc->lstep_half;
+//				q/=rcc->lstep_half;
 			}
 #if _USE_I_REDUCE_QPSTEP_
 			else{
@@ -2191,7 +2163,7 @@ static float rate_estimate_qscale(x264_ratecontrol_t *rcc, x264_param_t* pParam,
 
 		rcc->last_qscale = q;
 		rcc->last_qscale_lcu=q;
-		if(pict_type==SLICE_TYPE_I)
+		if(pict_type==I_SLICE)
 			rcc->last_qscale_I=q;
 		else
 #if !_USE_LEVEL_P_
@@ -2205,10 +2177,10 @@ static float rate_estimate_qscale(x264_ratecontrol_t *rcc, x264_param_t* pParam,
 		printf("qp= %4.2f ",rcc->qp_novbv);
 #endif
 		//Make sure the QP of P-Slice is higher than that of the previous I-Slice
-		if(pict_type==SLICE_TYPE_I&&rcc->last_qscale_for[SLICE_TYPE_P]<q)
-			rcc->last_qscale_for[SLICE_TYPE_P] = q*pParam->rc.f_ip_factor;
+		if(pict_type==I_SLICE&&rcc->last_qscale_for[P_SLICE]<q)
+			rcc->last_qscale_for[P_SLICE] = q*pParam->rc.f_ip_factor;
 #if _USE_LEVEL_P_
-		if(pict_type==SLICE_TYPE_I) {
+		if(pict_type==I_SLICE) {
 //			for(int i=0;i<3;i++)
 //				if(rcc->last_qscale_for[i]<q)
 //					rcc->last_qscale_for[i] = q*pParam->rc.f_ip_factor;
@@ -2239,7 +2211,7 @@ double predict_row_size( x264_ratecontrol_t *rc, int y, double qp)
 	double pred_s = predict_size( rc->row_pred, qp2qscale(qp), rc->i_row_satd[y]);
 	double pred_val;
 	double pred_t = pred_s;
-	if( rc->slice_type != SLICE_TYPE_I 
+	if( rc->slice_type != I_SLICE 
 		&& rc->i_type_last == rc->slice_type
 		&& rc->i_row_satd_last[y] > 0 )
 	{
@@ -2298,22 +2270,21 @@ double predict_row_size_sum( x264_ratecontrol_t *rc, int y, float qp)
 /* Before encoding a frame, choose a QP for it */
 void x264_ratecontrol_start( x264_ratecontrol_t *rc, x264_param_t* pParam, int i_slice_type, int i_force_qp )
 {
-	ratecontrol_entry_t *rce = NULL;
 
 	rc->i_mb_x = 0;
 	rc->i_mb_y = 0;
 
-	rc->slice_type = i_slice_type;
+	//rc->slice_type = i_slice_type;
 
 	rc->qpa = 0;
 	rc->skip_lcu_num=0;
 	rc->start_flag=0;
 #if _USE_I_REDUCE_QPSTEP_
-	if(i_slice_type==SLICE_TYPE_I)
+	if(i_slice_type==I_SLICE)
 		rc->gop_id=-1;
 #endif
 	printf("gopid= %d ",rc->gop_id);
-	if(i_slice_type==SLICE_TYPE_I)
+	if(i_slice_type==I_SLICE)
 		rc->p_after_i=0;
 	else if(rc->gop_id==1)
 			rc->p_after_i++;
@@ -2323,8 +2294,8 @@ void x264_ratecontrol_start( x264_ratecontrol_t *rc, x264_param_t* pParam, int i
 //	printf("cost= %d ",rc->last_satd);
 //	printf("var= %f ",rc->std_val);
 	double wgt;
-	if(rc->slice_type==SLICE_TYPE_P){
-		if(rc->i_type_last==SLICE_TYPE_I) {
+	if(rc->slice_type!=I_SLICE){
+		if(rc->i_type_last==I_SLICE) {
 			//	rcc->last_satd=((7*rcc->sad_Ilast+1*rcc->framesad_Pavg)/8);
 			wgt=0.3;
 			rc->last_satd=wgt*rc->sad_Ilast+(1-wgt)*rc->framesad_Pavg;
@@ -2368,7 +2339,7 @@ void x264_ratecontrol_start( x264_ratecontrol_t *rc, x264_param_t* pParam, int i
 		if(rc->i_frame==0)
 			wgt=1.0;
 		else {
-			if(rc->i_type_last==SLICE_TYPE_I)
+			if(rc->i_type_last==I_SLICE)
 				wgt=rc->last_satd/rc->sad_Ilast;
 			else
 				wgt=rc->last_satd/rc->sad_Plast;
@@ -2378,7 +2349,7 @@ void x264_ratecontrol_start( x264_ratecontrol_t *rc, x264_param_t* pParam, int i
 		}
 		rc->i_row_satd_tmp=0;
 
-		rc->ftype=rc->slice_type==SLICE_TYPE_I?0:rc->gop_id+1;
+		rc->ftype=rc->slice_type==I_SLICE?0:rc->gop_id+1;
 		rc->pred=&rc->preds[rc->ftype];
 		rc->row_pred = &rc->row_preds[rc->ftype];
 //		printf("ftype=%d ",rc->ftype);
@@ -2388,7 +2359,7 @@ void x264_ratecontrol_start( x264_ratecontrol_t *rc, x264_param_t* pParam, int i
 	{
 		rc->qpm=x264_clip3f(qscale2qp( rate_estimate_qscale( rc, pParam, i_slice_type )),0,51);
 #if _USE_I_FRAME_REDUCTION
-		if(i_slice_type==SLICE_TYPE_I)
+		if(i_slice_type==I_SLICE)
 			rc->qpm-=3;
 #endif
 		rc->qp=(int)(rc->qpm+0.5);
@@ -2454,12 +2425,10 @@ void x264_ratecontrol_mb( x264_ratecontrol_t *rc, x264_param_t* pParam, int bits
 	}
 #endif
 
-#if !_USE_LCU_
 	if( rc->i_mb_x != pParam->picWidthInBU-1 ) {
 		rc->i_mb_x++;
 		return;
 	}
-#endif
 
 	rc->i_row_qp[y] = rc->qpm;
 	rc->i_row_satd[y]=rc->i_row_satd_tmp;
@@ -2480,62 +2449,14 @@ void x264_ratecontrol_mb( x264_ratecontrol_t *rc, x264_param_t* pParam, int bits
             float buffer_left_planned = rc->buffer_fill - rc->frame_size_planned;
 
 			float step_size = 0.5;//0.5f;
-#if 0//_USE_MY_CONDITION
-            while( rc->qpm < qp_max
-                   && ((b1 > rc->frame_size_planned *0.6)
-				   &&b1>rc->buffer_fill*1.1
-				   ))//&&b1>rc->buffer_rate*5))
-            {
-                rc->qpm +=step_size;
-                b1 = predict_row_size_sum( rc, y, rc->qpm );
-				printf("%d:+ ",y);
-				fflush(stdout);
-            }
 
-            while( rc->qpm > qp_min
-                   && (b1<rc->frame_size_planned*0.6
-				   && b1<rc->buffer_fill*0.8)
-				   )
-            {
-                rc->qpm -=step_size;
-                b1 = predict_row_size_sum( rc, y, rc->qpm );
-				printf("%d:- ",y);
-				fflush(stdout);
-            }
-
-#else
-#if 0 //!_USE_DIFF_CONDITION_
-            while( rc->qpm < i_qp_max
-                   && ((b1 > rc->frame_size_planned *1.15&&rc->qpm<rc->qp_novbv)// 1.15)//&& rc->qpm <rc->qp_novbv)
-                    || (rc->buffer_fill - b1 < buffer_left_planned*0.5)//0.5
-				//	|| (b1>rc->buffer_rate*5)
-					))
-            {
-                rc->qpm +=step_size;
-                b1 = predict_row_size_sum( rc, y, rc->qpm );
-				printf("%d:+ ",y);
-			fflush(stdout);
-            }
-
-            while( rc->qpm > i_qp_min
-			//	&&rc->qpm>rc->i_row_qp[0]-3*pParam->rc.i_qp_step
-                   && buffer_left_planned > rc->buffer_size * 0.4//0.4
-                   && ((b1 < rc->frame_size_planned *0.6&&rc->qpm<prev_row_qp)// 0.8 && rc->qpm <= prev_row_qp)
-                     || b1 < (rc->buffer_fill - rc->buffer_size + rc->buffer_rate) * 0.6))//1.1))
-            {
-                rc->qpm -=step_size;
-                b1 = predict_row_size_sum( rc, y, rc->qpm );
-				printf("%d:- ",y);
-				fflush(stdout);
-            }
-#else
 
 			float qp_absolute_max = pParam->rc.i_qp_max;
 			float max_frame_error = X264_MAX( 0.05f, 1.0f / pParam->picHeightInBU);
 			float rc_tol = buffer_left_planned * rc->rate_tolerance;
 			if( row_bits_so_far( rc, y ) < 0.05f * rc->frame_size_planned )
 				qp_max = qp_absolute_max = prev_row_qp;
-			if( rc->slice_type!= SLICE_TYPE_I )
+			if( rc->slice_type!= I_SLICE )
 				rc_tol *= 0.5f;
             while( rc->qpm < qp_max
                    && ((b1 > rc->frame_size_planned+rc_tol)||//*1.15)||//+ rc_tol) ||
@@ -2558,20 +2479,7 @@ void x264_ratecontrol_mb( x264_ratecontrol_t *rc, x264_param_t* pParam, int bits
 				printf("%d:- ",y);
 				fflush(stdout);
             }
-#if 0
-			/* avoid VBV underflow or MinCR violation */
-			while( (rc->qpm < qp_absolute_max)
-				&& ((rc->buffer_fill - b1 < rc->buffer_rate * max_frame_error)))
-			{
-				rc->qpm += step_size;
-				b1 = predict_row_size_sum( rc, y, rc->qpm );
-				printf("Good\n");
-				fflush(stdout);
-			}
-#endif
 
-#endif
-#endif
         }
 	rc->i_mb_x = 0;
 	rc->i_mb_y++;
@@ -2714,13 +2622,13 @@ void x264_ratecontrol_end( x264_ratecontrol_t *rc, x264_param_t* pParam,int bits
 		fflush(stdout);
 #else
 #if 0//_USE_IFRAME_RESTRICT_
-		if(rc->slice_type==SLICE_TYPE_I)
+		if(rc->slice_type==I_SLICE)
 			rc->cplxr_sum += bits*0.5 * qp2qscale(rc->qpa) / rc->last_rceq;
 		else
 #endif
 			rc->cplxr_sum += bits * qp2qscale(rc->qpa) / rc->last_rceq;
 #if 0//_USE_LEVEL_P_
-		if(rc->slice_type==SLICE_TYPE_I) {
+		if(rc->slice_type==I_SLICE) {
 		rc->wanted_bits+=rc->bitrate/rc->fps;
 		rc->wanted_bits_window += rc->bitrate / rc->fps;
 		}
@@ -2747,7 +2655,7 @@ void x264_ratecontrol_end( x264_ratecontrol_t *rc, x264_param_t* pParam,int bits
 #endif
 
 		rc->accum_p_norm += 1;
-		if( rc->slice_type == SLICE_TYPE_I )
+		if( rc->slice_type == I_SLICE )
 			rc->accum_p_qp += rc->qpa * fabs(pParam->rc.f_ip_factor);
 		else
 			rc->accum_p_qp += rc->qpa;
@@ -2772,11 +2680,11 @@ void x264_ratecontrol_end( x264_ratecontrol_t *rc, x264_param_t* pParam,int bits
 	
 	rc->i_type_last = rc->slice_type;
 
-	if( rc->slice_type != SLICE_TYPE_B )
+	if( rc->slice_type != B_SLICE )
 		rc->last_non_b_pict_type = rc->slice_type;
 
 #if _NEW_SATD_EST_
-	if(rc->slice_type==SLICE_TYPE_I)
+	if(rc->slice_type==I_SLICE)
 		rc->sad_Ilast=cost;
 	else {
 		rc->sad_Plast=cost;
