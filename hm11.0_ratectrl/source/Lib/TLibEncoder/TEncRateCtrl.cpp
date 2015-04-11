@@ -2086,18 +2086,16 @@ double predict_row_size( x264_ratecontrol_t *rc, int y, double qp)
 	/* average between two predictors:
 	* absolute SATD, and scaled bit cost of the colocated row in the previous frame */
 	double pred_s = predict_size( rc->row_pred, qp2qscale(qp), rc->i_row_satd[y]);
-	double pred_t = 0;
 	if( rc->slice_type != SLICE_TYPE_I 
 		&& rc->i_type_last == rc->slice_type
 		&& rc->i_row_satd_last[y] > 0 )
 	{
+		double pred_t = 0;
 		pred_t = rc->i_row_bits_last[y] * rc->i_row_satd[y] / rc->i_row_satd_last[y]
 		* qp2qscale(rc->i_row_qp_last[y]) / qp2qscale(qp);
+		return (pred_s+pred_t)/2;
 	}
-	if( pred_t == 0 )
-		pred_t = pred_s;
-
-	return (pred_s + pred_t) / 2;
+	return pred_s ;
 }
 static int row_bits_so_far( x264_ratecontrol_t *rc, int y )
 {
@@ -2114,23 +2112,7 @@ double predict_row_size_sum( x264_ratecontrol_t *rc, int y, float qp)
 		bits += predict_row_size( rc, i, qp);
 	return bits;
 }
-// provisionally update VBV according to the planned size of all frames currently in progress
-static void update_vbv_plan( x264_ratecontrol_t *rcc, int overhead )
-{
-    rcc->buffer_fill = rcc->buffer_fill_final / (2*rcc->fps);
-    rcc->buffer_fill = X264_MIN( rcc->buffer_fill, rcc->buffer_size );
-    rcc->buffer_fill -= overhead;
-}
-static void accum_p_qp_update( x264_ratecontrol_t *rc, float qp )
-{
-    rc->accum_p_qp   *= .95;
-    rc->accum_p_norm *= .95;
-    rc->accum_p_norm += 1;
-    if( rc->slice_type == SLICE_TYPE_I )
-        rc->accum_p_qp += qp + rc->ip_offset;
-    else
-        rc->accum_p_qp += qp;
-}
+
 /* Before encoding a frame, choose a QP for it */
 void x264_ratecontrol_start( x264_ratecontrol_t *rc, x264_param_t* pParam, int i_slice_type, int i_force_qp )
 {
@@ -2140,7 +2122,6 @@ void x264_ratecontrol_start( x264_ratecontrol_t *rc, x264_param_t* pParam, int i
 	rc->i_mb_y = 0;
 
 	rc->slice_type = i_slice_type;
-//	rc->ftype=rc->slice_type==SLICE_TYPE_I?0:rc->gop_id;
 
 	rc->qpa = 0;
 	int overhead=0;//1000000000;
@@ -2205,6 +2186,8 @@ void x264_ratecontrol_start( x264_ratecontrol_t *rc, x264_param_t* pParam, int i
 			rc->i_row_satd[y]=wgt*rc->i_row_satd_last[y];
 		}
 		rc->i_row_satd_tmp=0;
+
+		rc->ftype=rc->slice_type==SLICE_TYPE_I?0:rc->gop_id+1;
 		rc->pred=&rc->preds[rc->ftype];
 		rc->row_pred = &rc->row_preds[rc->ftype];
 		printf("ftype=%d ",rc->ftype);
@@ -2273,14 +2256,14 @@ void x264_ratecontrol_mb( x264_ratecontrol_t *rc, x264_param_t* pParam, int bits
         update_predictor( rc->row_pred, qp2qscale(rc->qpm), rc->i_row_satd[y], rc->i_row_bits[y] );
         if( y < rc->last_row )//&& rc->i_slice_count[rc->slice_type] > 0 )
         {
-            int prev_row_qp = rc->i_row_qp[y];
+            float prev_row_qp = rc->i_row_qp[y];
             int b0 = predict_row_size_sum( rc, y, rc->qpm );
             int b1 = b0;
-            int i_qp_max = X264_MIN( prev_row_qp + pParam->rc.i_qp_step, pParam->rc.i_qp_max );
-            int i_qp_min = X264_MAX( prev_row_qp - pParam->rc.i_qp_step, pParam->rc.i_qp_min );
+            float i_qp_max = X264_MIN( prev_row_qp + pParam->rc.i_qp_step, pParam->rc.i_qp_max );
+            float i_qp_min = X264_MAX( prev_row_qp - pParam->rc.i_qp_step, pParam->rc.i_qp_min );
             float buffer_left_planned = rc->buffer_fill - rc->frame_size_planned;
 
-			float step_size = 0.5;//0.5f;
+			float step_size = 0.1;//0.5f;
             while( rc->qpm < i_qp_max
                    && ((b1 > rc->frame_size_planned * 1.15)//&& rc->qpm <rc->qp_novbv)
                     || (rc->buffer_fill - b1 < buffer_left_planned * 0.5)))
@@ -2291,7 +2274,7 @@ void x264_ratecontrol_mb( x264_ratecontrol_t *rc, x264_param_t* pParam, int bits
 
             while( rc->qpm > i_qp_min
                    && buffer_left_planned > rc->buffer_size * 0.4//0.4
-                   && ((b1 < rc->frame_size_planned *0.8&&rc->qpm<rc->qp_novbv)// 0.8 && rc->qpm <= prev_row_qp)
+                   && ((b1 < rc->frame_size_planned *0.8)// 0.8 && rc->qpm <= prev_row_qp)
                      || b1 < (rc->buffer_fill - rc->buffer_size + rc->buffer_rate) * 1.1))//1.1))
             {
                 rc->qpm -=step_size;
