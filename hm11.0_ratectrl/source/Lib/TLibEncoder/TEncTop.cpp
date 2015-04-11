@@ -130,7 +130,7 @@ void    x264_param_default( x264_param_t *param )
 	param->rc.i_qp_min = 0;
 	param->rc.i_qp_max = 51;
 
-	param->rc.f_ip_factor = 1;//1.4;
+//	param->rc.f_ip_factor = 1;//1.4;
 	param->rc.f_pb_factor = 1;//1.3;
 
 	param->rc.f_qcompress = 0.6;
@@ -175,6 +175,7 @@ Void TEncTop::create ()
 {
   // initialize global variables
   initROM();
+
   
   // create processing unit classes
   m_cGOPEncoder.        create();
@@ -224,6 +225,8 @@ Void TEncTop::create ()
   m_param.rc.i_qp_step=QPStep;
   extern Double Decay;
   m_param.rc.f_decay=Decay;
+  extern Double IPFactor;
+  m_param.rc.f_ip_factor=IPFactor;
 
 #if _USE_VBV_
   extern Int VBV_MaxRate;

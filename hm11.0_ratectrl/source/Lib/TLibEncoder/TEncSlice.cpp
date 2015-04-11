@@ -114,6 +114,7 @@ Void TEncSlice::destroy()
     m_apcPicYuvResi  = NULL;
   }
   
+
   // free lambda and QP arrays
   if ( m_pdRdPicLambda ) { xFree( m_pdRdPicLambda ); m_pdRdPicLambda = NULL; }
   if ( m_pdRdPicQp     ) { xFree( m_pdRdPicQp     ); m_pdRdPicQp     = NULL; }
@@ -374,7 +375,7 @@ Void TEncSlice::initEncSlice( TComPic* pcPic, Int pocLast, Int pocCurr, Int iNum
  }
 #endif
 	 m_pcRateCtrl->qp_factor=m_pcCfg->getGOPEntry(iGOPid).m_QPFactor;
-	 m_pcRateCtrl->qp_offset=m_pcCfg->getGOPEntry(iGOPid).m_QPOffset;
+	 m_pcRateCtrl->qp_offset=eSliceType==SLICE_TYPE_I?0:m_pcCfg->getGOPEntry(iGOPid).m_QPOffset;
 	 m_pcRateCtrl->gop_id=iGOPid;
 	  x264_ratecontrol_start( m_pcRateCtrl, m_pcParam, eSliceType, 0);
 	  dQP = x264_ratecontrol_qp( m_pcRateCtrl );

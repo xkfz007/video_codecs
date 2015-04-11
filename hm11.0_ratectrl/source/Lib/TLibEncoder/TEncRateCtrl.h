@@ -475,7 +475,6 @@ static const char * const x264_motion_est_names[] = { "dia", "hex", "umh", "esa"
 #define _OVERFLOW_ADJUST_ 1
 #define _USE_STD_PRED_ 1
 #define _USE_QPOFFSET_ 0
-#define _USE_SMALL_BIG_P_ 0
 #define _USE_LCU_ 0
 #define _USE_BITS_ADJUST_ 1
 #define _USE_DIFF_CONDITION_ 0
@@ -484,6 +483,8 @@ static const char * const x264_motion_est_names[] = { "dia", "hex", "umh", "esa"
 #define _USE_CLIPSCALE_ 0
 #define _USE_BITS_ALLOC1_ 0
 #define _USE_BITS_ALLOC2_ 0
+#define _USE_IFRAME_RESTRICT_ 1
+#define _USE_PFRAME_FROM_IFRAME 1
 
 
 #define X264_RC_CQP                  0 //Constant quantizer, the QPs are simply based on whether the frame is P,I or B frame.
@@ -672,6 +673,7 @@ struct x264_ratecontrol_t
 	int slice_type;
 	int qp_offset;
 	double qp_factor;
+	int p_after_i;
 
 	/* VBV stuff */
     double buffer_size;
@@ -697,6 +699,7 @@ struct x264_ratecontrol_t
 	double rate_factor_constant;
 	double ip_offset;
 	double pb_offset;
+	double ratefactor;
 
 
 	double wanted_bits_window_lcu;
