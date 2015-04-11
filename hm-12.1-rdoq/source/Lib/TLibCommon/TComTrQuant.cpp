@@ -1498,7 +1498,8 @@ Void TComTrQuant::xRateDistOptQuant                 ( TComDataCU*               
                                                       TextType                        eTType,
                                                       UInt                            uiAbsPartIdx )
 {
-	if(uiWidth==8&&uiHeight==8||uiWidth==4&&uiHeight==4) {
+//	if(uiWidth==8&&uiHeight==8||uiWidth==4&&uiHeight==4) 
+	{
 		xRateDistOptQuant2(pcCU,plSrcCoeff,piDstCoeff,uiWidth,uiHeight,uiAbsSum,eTType,uiAbsPartIdx);
 		return;
 	}
@@ -2092,6 +2093,7 @@ Void TComTrQuant::xRateDistOptQuant2                 ( TComDataCU*              
 		int level_idx; // index into level_tree[]
 		int ctxSet;
 		int goRiceParam;
+		int hasLast;
 	} trellis_node_t;
 	struct {
 		int abs_level;
@@ -2110,11 +2112,12 @@ Void TComTrQuant::xRateDistOptQuant2                 ( TComDataCU*              
 	trellis_node_t *nodes_next = nodes[1];
 	trellis_node_t *bnode;
 	trellis_node_t start_node;
-	for(int i = 2; i <=5; i++ )
-		nodes_cur[i].score = MAX_DOUBLE;
 	trellis_node_t n;
 	int ctxSetFlag=0;
+	int lastCoeffFlag=0;
 	int j;
+	level_tree[0].abs_level = 0;
+	level_tree[0].next = 0;
 
 	for (Int iCGScanPos = uiCGNum-1; iCGScanPos >= 0; iCGScanPos--)
 	{
@@ -2123,6 +2126,8 @@ Void TComTrQuant::xRateDistOptQuant2                 ( TComDataCU*              
 		UInt uiCGPosX   = uiCGBlkPos - (uiCGPosY * uiNumBlkSide);
 		const Int patternSigCtx = TComTrQuant::calcPatternSigCtx(uiSigCoeffGroupFlag, uiCGPosX, uiCGPosY, uiWidth, uiHeight);
 
+		for(int i = 2; i <=5; i++ )
+			nodes_cur[i].score = MAX_DOUBLE;
 		nodes_cur[1].score = 0;
 		nodes_cur[1].level_idx = 0;
 		nodes_cur[1].goRiceParam=0;
@@ -2133,9 +2138,8 @@ Void TComTrQuant::xRateDistOptQuant2                 ( TComDataCU*              
 			nodes_cur[1].ctxSet++;
 			ctxSetFlag=0;
 		}
+		nodes_cur[1].hasLast=0;
 
-		level_tree[0].abs_level = 0;
-		level_tree[0].next = 0;
 		i_levels_used=1;
 		for (Int iScanPosinCG = uiCGSize-1; iScanPosinCG >= 0; iScanPosinCG--)
 		{
@@ -2152,7 +2156,7 @@ Void TComTrQuant::xRateDistOptQuant2                 ( TComDataCU*              
 			UInt uiMaxAbsLevel        = (lLevelDouble + (1 << (iQBits - 1))) >> iQBits;
 
 			Double dErr               = Double( lLevelDouble );
-		//	piDstCoeff[ uiBlkPos ]    = uiMaxAbsLevel;
+			//	piDstCoeff[ uiBlkPos ]    = uiMaxAbsLevel;
 
 			if ( uiMaxAbsLevel > 0 && iLastScanPos < 0 ) {
 				iLastScanPos            = iScanPos;
@@ -2168,13 +2172,17 @@ Void TComTrQuant::xRateDistOptQuant2                 ( TComDataCU*              
 				Double dCurrCostSig;
 				if(uiMaxAbsLevel==0){
 					dCurrCostSig= xGetRateSigCoef( 0, uiCtxSig );
+					if(n.hasLast==1||lastCoeffFlag==1){
+						nodes_cur[0].score+=dCurrCostSig;
+					}	
+
 					for(int j=2;j<=5;j++){
 						if(abs(nodes_cur[j].score-MAX_DOUBLE)>0.00001){
 							level_tree[i_levels_used].abs_level = 0; 
 							level_tree[i_levels_used].next = nodes_cur[j].level_idx; 
 							nodes_cur[j].level_idx = i_levels_used; 
 							i_levels_used++;
-						//	nodes_cur[j].score+=lLevelDouble*lLevelDouble*dTemp+dCurrCostSig;
+							//	nodes_cur[j].score+=lLevelDouble*lLevelDouble*dTemp+dCurrCostSig;
 							nodes_cur[j].score+=dCurrCostSig;
 						}
 					}
@@ -2195,7 +2203,8 @@ Void TComTrQuant::xRateDistOptQuant2                 ( TComDataCU*              
 						int node_ctx=j;
 						if(uiAbsLevel>0||j>1){
 							dCurrCostSig=0;
-							if( iScanPos != iLastScanPos ){
+						//	if( iScanPos != iLastScanPos ){
+							if(n.hasLast==1||lastCoeffFlag==1){
 								dCurrCostSig= xGetRateSigCoef( uiAbsLevel>0, uiCtxSig );
 							}			
 							n.score+=dCurrCostSig;
@@ -2235,6 +2244,11 @@ Void TComTrQuant::xRateDistOptQuant2                 ( TComDataCU*              
 								//	else if( (c1 < 3) && (c1 > 0) && uiAbsLevel) {
 								//		n.c1=c1+1;
 								//	}
+								if(n.hasLast==0&&lastCoeffFlag==0){
+									Double d64CostLast= uiScanIdx == SCAN_VER ? xGetRateLast( uiPosY, uiPosX ) : xGetRateLast( uiPosX, uiPosY );
+									n.score+=d64CostLast;
+									n.hasLast=1;
+								}
 
 								if(uiAbsLevel>1){
 									node_ctx=coeff_abs_level_transition[1][j];
@@ -2254,13 +2268,10 @@ Void TComTrQuant::xRateDistOptQuant2                 ( TComDataCU*              
 							i_levels_used++;
 							nodes_next[node_ctx]=n;
 						}
-
 					}
 				}
 				XCHG( trellis_node_t*, nodes_cur, nodes_next );
-
 			} 
-
 
 
 		}////end for (iScanPosinCG)
@@ -2274,21 +2285,24 @@ Void TComTrQuant::xRateDistOptQuant2                 ( TComDataCU*              
 		}
 		if(tmpj>3)
 			ctxSetFlag=1;
+		if(bnode->hasLast==1)
+			lastCoeffFlag=1;
 
 		j = bnode->level_idx;
 		for (Int iScanPosinCG = 0;iScanPosinCG<=uiCGSize-1;  iScanPosinCG++)
 		{
 			Int scanPos = iCGScanPos*uiCGSize + iScanPosinCG;
 			Int blkPos = scan[ scanPos ];
-			piDstCoeff[blkPos]=level_tree[j].abs_level;
+			Int level  =level_tree[j].abs_level ;
+			uiAbsSum += level;
+			piDstCoeff[blkPos]=plSrcCoeff[blkPos]<0?-level:level;
 			if(piDstCoeff[blkPos])
 				uiSigCoeffGroupFlag[ uiCGBlkPos ] = 1;
 			j=level_tree[j].next;
 		}
 
 	}
-
-
+//	printf("End\n");
 
 
 }
