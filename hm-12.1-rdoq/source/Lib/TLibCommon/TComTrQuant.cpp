@@ -1015,7 +1015,7 @@ Void TComTrQuant::xQuant( TComDataCU* pcCU,
 #if ADAPTIVE_QP_SELECTION
     xRateDistOptQuant( pcCU, piCoef, pDes, pArlDes, iWidth, iHeight, uiAcSum, eTType, uiAbsPartIdx );
 #else
-    xRateDistOptQuant( pcCU, piCoef, pDes, iWidth, iHeight, uiAcSum, eTType, uiAbsPartIdx );
+    xRateDistOptQuant2( pcCU, piCoef, pDes, iWidth, iHeight, uiAcSum, eTType, uiAbsPartIdx );
 #endif
   }
   else
@@ -2098,7 +2098,7 @@ Void TComTrQuant::xRateDistOptQuant2                 ( TComDataCU*              
 	struct {
 		int abs_level;
 		int next;
-	} level_tree[16*5*2];
+	} level_tree[16*5*3];
 	int i_levels_used;
 	static const int coeff_abs_level_transition[2][6] = {
 		{ 0,2, 3, 3, 4, 5 },
@@ -2118,6 +2118,7 @@ Void TComTrQuant::xRateDistOptQuant2                 ( TComDataCU*              
 	int j;
 	level_tree[0].abs_level = 0;
 	level_tree[0].next = 0;
+	Double coeffgroupsig_cost=0;
 
 	for (Int iCGScanPos = uiCGNum-1; iCGScanPos >= 0; iCGScanPos--)
 	{
@@ -2128,7 +2129,7 @@ Void TComTrQuant::xRateDistOptQuant2                 ( TComDataCU*              
 
 		for(int i = 2; i <=5; i++ )
 			nodes_cur[i].score = MAX_DOUBLE;
-		nodes_cur[1].score = 0;
+		nodes_cur[1].score = coeffgroupsig_cost;
 		nodes_cur[1].level_idx = 0;
 		nodes_cur[1].goRiceParam=0;
 		nodes_cur[1].c1Idx=0;
@@ -2172,10 +2173,9 @@ Void TComTrQuant::xRateDistOptQuant2                 ( TComDataCU*              
 				Double dCurrCostSig;
 				if(uiMaxAbsLevel==0){
 					dCurrCostSig= xGetRateSigCoef( 0, uiCtxSig );
-					if(n.hasLast==1||lastCoeffFlag==1){
-						nodes_cur[0].score+=dCurrCostSig;
+					if(lastCoeffFlag==1&&abs(nodes_cur[1].score-MAX_DOUBLE)>0.00001){
+						nodes_cur[1].score+=dCurrCostSig;
 					}	
-
 					for(int j=2;j<=5;j++){
 						if(abs(nodes_cur[j].score-MAX_DOUBLE)>0.00001){
 							level_tree[i_levels_used].abs_level = 0; 
@@ -2191,7 +2191,8 @@ Void TComTrQuant::xRateDistOptQuant2                 ( TComDataCU*              
 				for( j = 1; j <=5; j++ )
 					nodes_next[j].score = MAX_DOUBLE;
 
-				for(int uiAbsLevel=uiMaxAbsLevel;uiAbsLevel>=Int(uiMaxAbsLevel-1);uiAbsLevel--) {
+				Int uiMinAbsLevel=uiMaxAbsLevel==2?Int(uiMaxAbsLevel-2):Int(uiMaxAbsLevel-1);
+				for(int uiAbsLevel=uiMaxAbsLevel;uiAbsLevel>=uiMinAbsLevel;uiAbsLevel--) {
 					Double dErr         = Double( lLevelDouble  - ( uiAbsLevel << iQBits ) );
 					Double ssd=dErr*dErr*dTemp;
 
@@ -2223,27 +2224,18 @@ Void TComTrQuant::xRateDistOptQuant2                 ( TComDataCU*              
 								n.score+=dCurrCost;
 
 								baseLevel = (c1Idx < C1FLAG_NUMBER) ? (2 + (c2Idx < C2FLAG_NUMBER)) : 1;
-								if( uiAbsLevel >= baseLevel )
-								{
-									if(uiAbsLevel  > 3*(1<<uiGoRiceParam))
-									{
+								if( uiAbsLevel >= baseLevel ) {
+									if(uiAbsLevel  > 3*(1<<uiGoRiceParam)) {
 										n.goRiceParam = min<UInt>(uiGoRiceParam+ 1, 4);
 									}
 								}
-								if ( uiAbsLevel >= 1)
-								{
+								if ( uiAbsLevel >= 1) {
 									n.c1Idx=c1Idx+1;
 								}
 
-								//===== update bin model =====
 								if( uiAbsLevel > 1 ) {
-									//	n.c1 = 0; 
-									//	n.c2=c2 + (c2 < 2);
 									n.c2Idx=c2Idx+1;
 								}
-								//	else if( (c1 < 3) && (c1 > 0) && uiAbsLevel) {
-								//		n.c1=c1+1;
-								//	}
 								if(n.hasLast==0&&lastCoeffFlag==0){
 									Double d64CostLast= uiScanIdx == SCAN_VER ? xGetRateLast( uiPosY, uiPosX ) : xGetRateLast( uiPosX, uiPosY );
 									n.score+=d64CostLast;
@@ -2275,6 +2267,7 @@ Void TComTrQuant::xRateDistOptQuant2                 ( TComDataCU*              
 
 
 		}////end for (iScanPosinCG)
+		if(iLastScanPos>=0){
 		bnode = &nodes_cur[1];
 		int tmpj=1;
 		for(j = 2; j <= 5; j++ ) {
@@ -2285,8 +2278,9 @@ Void TComTrQuant::xRateDistOptQuant2                 ( TComDataCU*              
 		}
 		if(tmpj>3)
 			ctxSetFlag=1;
-		if(bnode->hasLast==1)
+		if(bnode->hasLast==1&&lastCoeffFlag==0)
 			lastCoeffFlag=1;
+
 
 		j = bnode->level_idx;
 		for (Int iScanPosinCG = 0;iScanPosinCG<=uiCGSize-1;  iScanPosinCG++)
@@ -2296,10 +2290,40 @@ Void TComTrQuant::xRateDistOptQuant2                 ( TComDataCU*              
 			Int level  =level_tree[j].abs_level ;
 			uiAbsSum += level;
 			piDstCoeff[blkPos]=plSrcCoeff[blkPos]<0?-level:level;
-			if(piDstCoeff[blkPos])
+			if(level)
 				uiSigCoeffGroupFlag[ uiCGBlkPos ] = 1;
 			j=level_tree[j].next;
 		}
+		if(uiSigCoeffGroupFlag[uiCGBlkPos]==0&&iCGScanPos==iCGLastScanPos)
+			iLastScanPos=-1;
+		if(uiSigCoeffGroupFlag[uiCGBlkPos]==1&&iCGScanPos<iCGLastScanPos&&abs(nodes_cur[1].score-MAX_DOUBLE)>0.00001){
+		UInt  uiCtxSig = getSigCoeffGroupCtxInc( uiSigCoeffGroupFlag, uiCGPosX, uiCGPosY, uiWidth, uiHeight);
+		Double A=xGetRateSigCoeffGroup(0, uiCtxSig); 
+		Double B=xGetRateSigCoeffGroup(1, uiCtxSig); 
+		Double allZeroCost=nodes_cur[1].score+A;
+		Double nonZeroCost=bnode->score+B;
+		if(allZeroCost<nonZeroCost){
+			for (Int iScanPosinCG = 0;iScanPosinCG<=uiCGSize-1;  iScanPosinCG++)
+			{
+				Int scanPos = iCGScanPos*uiCGSize + iScanPosinCG;
+				Int blkPos = scan[ scanPos ];
+				piDstCoeff[blkPos]=0;
+			}
+			uiSigCoeffGroupFlag[uiCGBlkPos]=0;
+		}
+			
+		}
+		}
+		else {
+			for (Int iScanPosinCG = 0;iScanPosinCG<=uiCGSize-1;  iScanPosinCG++)
+			{
+				Int scanPos = iCGScanPos*uiCGSize + iScanPosinCG;
+				Int blkPos = scan[ scanPos ];
+				piDstCoeff[blkPos]=0;
+			}
+
+		}
+
 
 	}
 //	printf("End\n");
