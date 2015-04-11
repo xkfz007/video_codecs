@@ -87,62 +87,6 @@ TEncTop::~TEncTop()
 #endif
 }
 
-#ifdef X264_RATECONTROL_2006
-void    x264_param_default( x264_param_t *param )
-{
-	/* */
-	memset( param, 0, sizeof( x264_param_t ) );
-
-	/* CPU autodetect */
-
-	/* Video properties */
-	param->i_width         = 0;
-	param->i_height        = 0;
-	param->i_fps_num       = 25;
-	param->i_fps_den       = 1;
-
-	/* Encoder parameters */
-	param->i_frame_reference = 1;
-	param->i_keyint_max = 250;
-	param->i_keyint_min = 25;
-	param->i_bframe = 0;
-	param->i_scenecut_threshold = 40;
-	param->b_bframe_adaptive = 1;
-	param->i_bframe_bias = 0;
-	param->b_bframe_pyramid = 0;
-
-	param->b_deblocking_filter = 1;
-	param->i_deblocking_filter_alphac0 = 0;
-	param->i_deblocking_filter_beta = 0;
-
-	param->b_cabac = 1;
-	param->i_cabac_init_idc = 0;
-
-    param->rc.i_rc_method = X264_RC_CQP;
-	param->rc.b_cbr = 0;
-	param->rc.i_bitrate = 0;
-	param->rc.f_rate_tolerance = 1.0;
-	param->rc.i_vbv_max_bitrate = 0;
-	param->rc.i_vbv_buffer_size = 0;
-	param->rc.f_vbv_buffer_init = 0.9;
-	param->rc.i_qp_constant = 26;
-	param->rc.i_rf_constant = -1;
-	param->rc.i_qp_min = 0;
-	param->rc.i_qp_max = 51;
-
-//	param->rc.f_ip_factor = 1;//1.4;
-	param->rc.f_pb_factor = 1;//1.3;
-
-	param->rc.f_qcompress = 0.6;
-	param->rc.f_qblur = 0.5;
-	param->rc.f_complexity_blur = 20;
-
-	param->b_repeat_headers = 1;
-	param->b_aud = 0;
-}
-
-#endif
-
 Void TEncTop::create ()
 {
   // initialize global variables
@@ -172,11 +116,9 @@ Void TEncTop::create ()
   x264_param_default(&m_param);
   m_param.i_width         = getSourceWidth();
   m_param.i_height        = getSourceHeight();
-
   m_param.i_fps_num       = getFrameRate();
-  m_param.i_fps_den       = 1;
   m_param.frame_to_be_encoded=getFramesToBeEncoded();
-//  m_param.gopsize=getGOPSize();
+  m_param.gopsize=getGOPSize();
 
   m_param.rc.i_qp_constant=getQP();
   m_param.rc.i_bitrate = getTargetBitrate();

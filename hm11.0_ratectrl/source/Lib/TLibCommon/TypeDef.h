@@ -52,17 +52,22 @@
 #define MAX_VPS_OP_SETS_PLUS1                     1024
 #define MAX_VPS_NUH_RESERVED_ZERO_LAYER_ID_PLUS1  1
 
-//#define RATE_CONTROL_LAMBDA_DOMAIN                  1  ///< JCTVC-K0103, rate control by R-lambda model
-//#define M0036_RC_IMPROVEMENT                        1  ///< JCTVC-M0036, improvement for R-lambda model based rate control
+#define RATE_CONTROL_LAMBDA_DOMAIN                  0  ///< JCTVC-K0103, rate control by R-lambda model
+#define M0036_RC_IMPROVEMENT                        1  ///< JCTVC-M0036, improvement for R-lambda model based rate control
 #define TICKET_1090_FIX                             1
 
-//#define RC_FIX                                      1  /// suggested fix for M0036
-//#define RATE_CONTROL_INTRA                          1  ///< JCTVC-M0257, rate control for intra 
+#define RC_FIX                                      0  /// suggested fix for M0036
+#define RATE_CONTROL_INTRA                          0  ///< JCTVC-M0257, rate control for intra 
 
-#define X264_RATECONTROL_2006
 //#define _LCU_RC_
+#if !RATE_CONTROL_LAMBDA_DOMAIN
+#define X264_RATECONTROL_2006
 #define _USE_PRED_ 1
 #define _USE_REAL_SATD_ 0
+#define _USE_VBV_ 0
+#define _SAD_TEST_ 0
+#endif
+#define _USE_RESI_ 1
 
 #define MAX_CPB_CNT                     32  ///< Upper bound of (cpb_cnt_minus1 + 1)
 #define MAX_NUM_LAYER_IDS                64

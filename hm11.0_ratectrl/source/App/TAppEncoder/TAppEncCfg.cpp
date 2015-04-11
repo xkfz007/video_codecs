@@ -247,6 +247,8 @@ Int VBV_MaxRate;
 Int VBV_BufSize;
 Double VBV_Init;
 Int QPStep;
+Double Decay;
+Double IPFactor;
 Bool TAppEncCfg::parseCfg( Int argc, Char* argv[] )
 {
   Bool do_help = false;
@@ -436,15 +438,19 @@ Bool TAppEncCfg::parseCfg( Int argc, Char* argv[] )
   ( "InitialQP",           m_RCInitialQP,               0, "Rate control: initial QP" )
   ( "RCForceIntraQP",      m_RCForceIntraQP,        false, "Rate control: force intra QP to be equal to initial QP" )
 #else
-  ("RateCtrl,-rc", m_enableRateCtrl, false, "Rate control on/off")
+  ("RateControl,-rc", m_enableRateCtrl, false, "Rate control on/off")
   ("TargetBitrate,-tbr", m_targetBitrate, 0, "Input target bitrate(kbps)")
   ("NumLCUInUnit,-nu", m_numLCUInUnit, 0, "Number of LCUs in an Unit")
   ("RateTol,-rt",RateTol,1.0,"Rate tolerance for RC accuracy")
   ("ConstRF,-crf",ConstRF,-1,"Quality-based VBR (0-51) [23.0]")
-  ("QPStep",QPStep,1,"Set max QP step [1]")
+  ("QPStep",QPStep,2,"Set max QP step [2]")
+  ("Decay",Decay,1.0,"Set decay ratio [1.0]")
+  ("IPFactor",IPFactor,1.0,"Set ip factor [1.0]")
+#if _USE_VBV_
   ("VBV-MaxRate",VBV_MaxRate,0,"Max local bitrate (kbit/s) [0]")
   ("VBV-BufSize",VBV_BufSize,0,"Set size of the VBV buffer (kbit) [0]")
   ("VBV-Init",VBV_Init,0.9,"Initial VBV buffer occupancy [0.9]")
+#endif
   ("LCURC,-lrc",LCURC,false,"LCU level Rate Control")
 #endif
 
@@ -1448,9 +1454,13 @@ Void TAppEncCfg::xPrintParameter()
 	printf("RateTolerance                : %4.2f\n",RateTol);
 	printf("QPStep                       : %d\n",QPStep);
 	printf("ConstRateFactor              : %d\n",ConstRF);
+	printf("Decay                        : %4.2f\n",Decay);
+	printf("IPFactor                     : %4.2f\n",IPFactor);
+#if _USE_VBV_
 	printf("VBV-MaxRate                  : %d\n",VBV_MaxRate);
 	printf("VBV-BufSize                  : %d\n",VBV_BufSize);
 	printf("VBV-Init                     : %4.2f\n",VBV_Init);
+#endif
 	printf("LCURC                        : %d\n", LCURC);
   }
 #endif

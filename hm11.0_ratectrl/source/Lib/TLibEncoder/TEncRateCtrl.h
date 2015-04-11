@@ -398,24 +398,19 @@ private:
 #elif defined(X264_RATECONTROL_2006)
 
 
-#define _NEW_SATD_EST_ 1
 #define RC_P_WINDOW 8
 #define GOPSIZE 3 //gopsize+1
-#define _USE_STD_PRED_ 1
 #define _USE_BITS_ADJUST_ 0
-#define _NO_PRED_INIT_ 1
-#define _USE_CLIPSCALE_ 0
 #define _USE_BITS_ALLOC1_ 0
 #define _USE_BITS_ALLOC2_ 0
 #define _USE_IFRAME_RESTRICT_ 1
 #define _USE_PFRAME_FROM_IFRAME_ 1
 #define _USE_FIRST_I_REDUCTION_ 1
-#define _USE_DELAY_PFRAME_ 1
 #define _USE_I_FRAME_REDUCTION 0
-#define _USE_IQP_NOT_TOO_LOW_ 1
 #define _USE_LEVEL_P_ 1
 #define _USE_BITRATE_DETECT_ 1
 #define _USE_I_REDUCE_QPSTEP_ 0
+#define _USE_SATD_BASED_LCU_ 1
 
 
 #define X264_RC_CQP                  0 //Constant quantizer, the QPs are simply based on whether the frame is P,I or B frame.
@@ -430,24 +425,8 @@ typedef struct
 	int         i_height;
 
 	int         i_fps_num;
-	int         i_fps_den;
 
-	/* Bitstream parameters */
-	int         i_frame_reference;  /* Maximum number of reference frames */
-	int         i_keyint_max;       /* Force an IDR keyframe at this interval */
-	int         i_keyint_min;       /* Scenecuts closer together than this are coded as I, not IDR. */
-	int         i_scenecut_threshold; /* how aggressively to insert extra I frames */
 	int         i_bframe;   /* how many b-frame between 2 references pictures */
-	int         b_bframe_adaptive;
-	int         i_bframe_bias;
-	int         b_bframe_pyramid;   /* Keep some B-frames as references */
-
-	int         b_deblocking_filter;
-	int         i_deblocking_filter_alphac0;    /* [-6, 6] -6 light filter, 6 strong */
-	int         i_deblocking_filter_beta;       /* [-6, 6]  idem */
-
-	int         b_cabac;
-	int         i_cabac_init_idc;
 
 	/* Rate control parameters */
 	struct
@@ -472,15 +451,11 @@ typedef struct
 
 		/* 2pass params (same as ffmpeg ones) */
 		float       f_qcompress;    /* 0.0 => cbr, 1.0 => constant qp */
-		float       f_qblur;        /* temporally blur quants */
-		float       f_complexity_blur; /* temporally blur complexity */
 
 	} rc;
 	int frame_to_be_encoded;
 	int gopsize;
 
-	int b_aud;                  /* generate access unit delimiters */
-	int b_repeat_headers;       /* put SPS/PPS before each keyframe */
 	int m_numberOfLCU;
 	int b_variable_qp;
 	int picWidthInBU;
@@ -503,12 +478,9 @@ struct x264_ratecontrol_t
 	int b_abr;
 	int b_2pass;
 	int b_vbv;
-	int b_vbv_min_rate;
 	double fps;
 	double bitrate;
 	double rate_tolerance;
-	double qcompress;
-	int nmb;                    /* number of macroblocks in a frame */
 	int qp_constant[3];
 	int gop_id;
 	int tbits;
@@ -562,6 +534,9 @@ struct x264_ratecontrol_t
 	int *lcu_bits;
 	double last_rceq_lcu;
 	double last_qscale_lcu;
+	double lcu_satd_avg;
+	double lcu_satd_sum;
+	int lcu_idx;
 
 	double last_qscale;
 //	double last_qscale2;
@@ -582,16 +557,11 @@ struct x264_ratecontrol_t
 	double brate;
 
 	/* MBRC stuff */
-    float frame_size_estimated; /* Access to this variable must be atomic: double is
-                                 * not atomic on all arches we care about */
-    double frame_size_maximum;  /* Maximum frame size due to MinCR */
     double frame_size_planned;
-    double slice_size_planned;
 	int first_row, last_row;    /* region of the frame to be encoded by this thread */
 	predictor_t *row_pred;//[2];
 	predictor_t row_preds[GOPSIZE];/*max gop size is 64*///[3];//[2];
 	int bframes;                /* # consecutive B-frames before this P-frame */
-	int bframe_bits;            /* total cost of those frames */
 	int single_frame_vbv;
 
 //add
@@ -616,10 +586,7 @@ struct x264_ratecontrol_t
 
 #endif
 
-	int lcu_sad_avg;
-	int lcu_sad_sum;
-	int lcu_idx;
-#if _NEW_SATD_EST_
+
 	double framesad_Pavg;
 	double sad_Ilast;
 	double sad_Plast;
@@ -627,10 +594,7 @@ struct x264_ratecontrol_t
 	int i_statvalid_Pfrm;
 	int i_index_Pfrm;
 	int i_numvalid_Pfrm;
-#endif
-#if _USE_STD_PRED_
 	double std_val;
-#endif
 
 };
 
@@ -641,7 +605,7 @@ void x264_ratecontrol_end( x264_ratecontrol_t *rc, x264_param_t* pParam,int bits
 int x264_ratecontrol_qp( x264_ratecontrol_t *rc );
 void x264_ratecontrol_mb( x264_ratecontrol_t *rc, x264_param_t* pParam, int bits, int cost );
 void x264_ratecontrol_lcu( x264_ratecontrol_t *rc, x264_param_t* pParam, int bits, int cost );
-
+void  x264_param_default( x264_param_t *param );
 #else
 
 // ====================================================================================================================

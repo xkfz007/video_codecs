@@ -253,7 +253,6 @@ Void TEncSlice::initEncSlice( TComPic* pcPic, Int pocLast, Int pocCurr, Int iNum
 #ifdef X264_RATECONTROL_2006
   if ( m_pcCfg->getUseRateCtrl())
   {
-#if _USE_STD_PRED_
  {
 	 double std_val=MAX_DOUBLE;
 	 extern int pixel_sad2_wxh(Pel *pix1, int i_stride_pix1, int i_width,int i_height) ;
@@ -311,6 +310,9 @@ Void TEncSlice::initEncSlice( TComPic* pcPic, Int pocLast, Int pocCurr, Int iNum
 		//	 }
 		// }
 #else
+#if 0//_SAD_TEST_
+	FILE *fp=fopen("lcu_satd.txt","w");
+#endif
 		 std_val=0;
 		 int no=0;
 		 int lcu_sz=64;
@@ -366,17 +368,26 @@ Void TEncSlice::initEncSlice( TComPic* pcPic, Int pocLast, Int pocCurr, Int iNum
 					 m_pcRateCtrl->i_row_satd_last[y/lcu_sz]+=lcu_std_val;
 				 else if(m_pcParam->rc.b_lcurc)
 					 m_pcRateCtrl->lcu_satd[y/lcu_sz*picWidth/lcu_sz+x/lcu_sz]=lcu_std_val;
+#if 0//_SAD_TEST_
+				 fprintf(fp,"%7d ",lcu_std_val);
+#endif
 			 }
 		//	 printf("%d: %d\n",y/lcu_sz,m_pcRateCtrl->i_row_satd_last[y/lcu_sz]);
 		 }
+#if 0//_SAD_TEST_
+		 fprintf(fp,"\n");
+		 fclose(fp);
+#endif
 #endif
 		 m_pcRateCtrl->std_val=std_val;
+		 if(m_pcParam->rc.b_lcurc)
+			 m_pcRateCtrl->lcu_satd_avg=std_val/m_pcParam->m_numberOfLCU;
 	 }
  }
-#endif
 	 m_pcRateCtrl->qp_factor=m_pcCfg->getGOPEntry(iGOPid).m_QPFactor;
 	 m_pcRateCtrl->qp_offset=eSliceType==I_SLICE?0:m_pcCfg->getGOPEntry(iGOPid).m_QPOffset;
 	 m_pcRateCtrl->gop_id=iGOPid;//eSliceType==I_SLICE?-1:iGOPid;
+//	 printf("gop_size= %d ",m_pcParam->gopsize);
 
 	 m_pcRateCtrl->slice_type=eSliceType;
 	 if (eSliceType== B_SLICE &&m_pcCfg -> getGOPEntry( iGOPid ).m_sliceType == 'P')
@@ -1500,13 +1511,26 @@ Void TEncSlice::compressSlice( TComPic*& rpcPic )
 
 #endif
 			m_uiPicSAD+=CuSAD;
-		//	printf("%d [%d %d] \n",CuSAD,height,width);
+#if 0
+		//	FILE *fp=fopen("lcu_res.txt","a");
+			Pel*  pResi_Y   = pcCU->getPic()->getPicYuvResi()->getLumaAddr(pcCU->getAddr(), 0);
+			Pel*  pResi_U   = pcCU->getPic()->getPicYuvResi()->getCbAddr(pcCU->getAddr(), 0);
+			Pel*  pResi_V   = pcCU->getPic()->getPicYuvResi()->getCrAddr(pcCU->getAddr(), 0);
+			extern int pixel_resi_wxh(Pel *pix1, int i_stride_pix1, int i_width,int i_height) ;
+			int resi=0;
+			resi+=pixel_resi_wxh(pResi_Y,stride,width,height);
+			resi+=pixel_resi_wxh(pResi_U,cstride,width>>1,height>>1);
+			resi+=pixel_resi_wxh(pResi_V,cstride,width>>1,height>>1);
+		//	fprintf(fp,"%7d ",resi);
+		//	fclose(fp);
+#endif
 
 			if(m_pcParam->b_variable_qp) {
 				x264_ratecontrol_mb( m_pcRateCtrl, m_pcParam, pcCU->getTotalBits(), CuSAD);
 			}
 			else if(m_pcParam->rc.b_lcurc) {
 				x264_ratecontrol_lcu( m_pcRateCtrl, m_pcParam, pcCU->getTotalBits(), CuSAD);
+			//	x264_ratecontrol_lcu( m_pcRateCtrl, m_pcParam, pcCU->getTotalBits(), resi);
 			}
 
 #endif

@@ -1608,6 +1608,12 @@ Void TEncCu::xCheckBestMode( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, UIn
     m_ppcPredYuvBest[uiDepth] = m_ppcPredYuvTemp[uiDepth];
     m_ppcPredYuvTemp[uiDepth] = pcYuv;
 
+#if _USE_RESI_
+    pcYuv = m_ppcResiYuvBest[uiDepth];
+    m_ppcResiYuvBest[uiDepth] = m_ppcResiYuvTemp[uiDepth];
+    m_ppcResiYuvTemp[uiDepth] = pcYuv;
+#endif
+
     // Change Reconstruction data
     pcYuv = m_ppcRecoYuvBest[uiDepth];
     m_ppcRecoYuvBest[uiDepth] = m_ppcRecoYuvTemp[uiDepth];
@@ -1677,6 +1683,9 @@ Void TEncCu::xCopyYuv2Pic(TComPic* rpcPic, UInt uiCUAddr, UInt uiAbsPartIdx, UIn
 #if defined(X264_RATECONTROL_2006)
 	m_ppcPredYuvBest[uiSrcDepth]->copyToPicYuv( rpcPic->getPicYuvPred(), uiCUAddr, uiAbsPartIdx, uiDepth - uiSrcDepth, uiPartIdx);
 #endif
+#if _USE_RESI_
+	m_ppcResiYuvBest[uiSrcDepth]->copyToPicYuv( rpcPic->getPicYuvResi(), uiCUAddr, uiAbsPartIdx, uiDepth - uiSrcDepth, uiPartIdx);
+#endif
   }
   else
   {
@@ -1703,6 +1712,9 @@ Void TEncCu::xCopyYuv2Tmp( UInt uiPartUnitIdx, UInt uiNextDepth )
   m_ppcRecoYuvBest[uiNextDepth]->copyToPartYuv( m_ppcRecoYuvTemp[uiCurrDepth], uiPartUnitIdx );
 #if defined(X264_RATECONTROL_2006)
   m_ppcPredYuvBest[uiNextDepth]->copyToPartYuv( m_ppcPredYuvTemp[uiCurrDepth], uiPartUnitIdx );
+#endif
+#if _USE_RESI_
+  m_ppcResiYuvBest[uiNextDepth]->copyToPartYuv( m_ppcResiYuvTemp[uiCurrDepth], uiPartUnitIdx );
 #endif
 }
 
