@@ -254,7 +254,7 @@ protected:
   Bool      m_RCForceIntraQP;                     ///< force all intra picture to use initial QP or not
 #else
   Bool      m_enableRateCtrl;                                   ///< Flag for using rate control algorithm
-  Int       m_targetBitrate;                                 ///< target bitrate
+  Int		m_targetBitrate;                                 ///< target bitrate
   Int       m_numLCUInUnit;                                  ///< Total number of LCUs in a frame should be completely divided by the NumLCUInUnit
 #endif
   Int       m_useScalingListId;                               ///< using quantization matrix

@@ -269,6 +269,9 @@ public:
 #if RATE_CONTROL_LAMBDA_DOMAIN && !M0036_RC_IMPROVEMENT
   UInt   getSADPart ( Int bitDepth, Pel* pelCur, Int curStride,  Pel* pelOrg, Int orgStride, UInt width, UInt height );
 #endif
+#ifdef X264_RATECONTROL_2006
+  UInt   getSADPart ( Int bitDepth, Pel* pelCur, Int curStride,  Pel* pelOrg, Int orgStride, UInt width, UInt height );
+#endif
 };// END CLASS DEFINITION TComRdCost
 
 //! \}

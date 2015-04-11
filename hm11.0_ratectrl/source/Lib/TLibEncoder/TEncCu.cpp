@@ -39,6 +39,7 @@
 #include "TEncTop.h"
 #include "TEncCu.h"
 #include "TEncAnalyze.h"
+#include "TEncRateCtrl.h"
 
 #include <cmath>
 #include <algorithm>
@@ -94,6 +95,11 @@ Void TEncCu::create(UChar uhTotalDepth, UInt uiMaxWidth, UInt uiMaxHeight)
   }
   
   m_bEncodeDQP = false;
+#ifdef X264_RATECONTROL_2006
+  m_LCUPredictionSAD = 0;
+  m_addSADDepth      = 0;
+  m_temporalSAD      = 0;
+#endif
 #if RATE_CONTROL_LAMBDA_DOMAIN && !M0036_RC_IMPROVEMENT
   m_LCUPredictionSAD = 0;
   m_addSADDepth      = 0;
@@ -233,6 +239,11 @@ Void TEncCu::compressCU( TComDataCU*& rpcCU )
   // initialize CU data
   m_ppcBestCU[0]->initCU( rpcCU->getPic(), rpcCU->getAddr() );
   m_ppcTempCU[0]->initCU( rpcCU->getPic(), rpcCU->getAddr() );
+#ifdef X264_RATECONTROL_2006
+  m_addSADDepth      = 0;
+  m_LCUPredictionSAD = 0;
+  m_temporalSAD      = 0;
+#endif
 
 #if RATE_CONTROL_LAMBDA_DOMAIN && !M0036_RC_IMPROVEMENT
   m_addSADDepth      = 0;
@@ -430,9 +441,15 @@ Void TEncCu::xCompressCU( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, UInt u
 #else
   if(m_pcEncCfg->getUseRateCtrl())
   {
+#ifdef X264_RATECONTROL_2006
+    Int qp =x264_ratecontrol_qp(m_pcRateCtrl);
+    iMinQP  = Clip3( MIN_QP, MAX_QP, qp);
+    iMaxQP  = Clip3( MIN_QP, MAX_QP, qp);
+#else
     Int qp = m_pcRateCtrl->getUnitQP();
     iMinQP  = Clip3( MIN_QP, MAX_QP, qp);
     iMaxQP  = Clip3( MIN_QP, MAX_QP, qp);
+#endif
   }
 #endif
 
@@ -755,6 +772,9 @@ Void TEncCu::xCompressCU( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, UInt u
   else if(!(bSliceEnd && bInsidePicture))
   {
     bBoundary = true;
+#ifdef X264_RATECONTROL_2006
+	m_addSADDepth++;
+#endif
 #if RATE_CONTROL_LAMBDA_DOMAIN && !M0036_RC_IMPROVEMENT
     m_addSADDepth++;
 #endif
@@ -805,9 +825,15 @@ Void TEncCu::xCompressCU( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, UInt u
 #else
   if(m_pcEncCfg->getUseRateCtrl())
   {
+#ifdef X264_RATECONTROL_2006
+    Int qp =x264_ratecontrol_qp(m_pcRateCtrl);
+    iMinQP  = Clip3( MIN_QP, MAX_QP, qp);
+    iMaxQP  = Clip3( MIN_QP, MAX_QP, qp);
+#else
     Int qp = m_pcRateCtrl->getUnitQP();
     iMinQP  = Clip3( MIN_QP, MAX_QP, qp);
     iMaxQP  = Clip3( MIN_QP, MAX_QP, qp);
+#endif
   }
 #endif
   for (Int iQP=iMinQP; iQP<=iMaxQP; iQP++)
@@ -907,6 +933,7 @@ Void TEncCu::xCompressCU( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, UInt u
         {
 #if !RDO_WITHOUT_DQP_BITS
           m_pcEntropyCoder->resetBits();
+//		  printf("%s => ",__FUNCTION__);
           m_pcEntropyCoder->encodeQP( rpcTempCU, uiTargetPartIdx, false );
           rpcTempCU->getTotalBits() += m_pcEntropyCoder->getNumberOfWrittenBits(); // dQP bits
           if(m_pcEncCfg->getUseSBACRD())
@@ -1604,6 +1631,7 @@ Void TEncCu::xCheckDQP( TComDataCU* pcCU )
     {
 #if !RDO_WITHOUT_DQP_BITS
       m_pcEntropyCoder->resetBits();
+//	  printf("%s => ",__FUNCTION__);
       m_pcEntropyCoder->encodeQP( pcCU, 0, false );
       pcCU->getTotalBits() += m_pcEntropyCoder->getNumberOfWrittenBits(); // dQP bits
       if(m_pcEncCfg->getUseSBACRD())
@@ -1646,6 +1674,9 @@ Void TEncCu::xCopyYuv2Pic(TComPic* rpcPic, UInt uiCUAddr, UInt uiAbsPartIdx, UIn
     UInt uiPartIdxY = ( ( uiAbsPartIdxInRaster / rpcPic->getNumPartInWidth() ) % uiSrcBlkWidth) / uiBlkWidth;
     UInt uiPartIdx = uiPartIdxY * ( uiSrcBlkWidth / uiBlkWidth ) + uiPartIdxX;
     m_ppcRecoYuvBest[uiSrcDepth]->copyToPicYuv( rpcPic->getPicYuvRec (), uiCUAddr, uiAbsPartIdx, uiDepth - uiSrcDepth, uiPartIdx);
+#if defined(X264_RATECONTROL_2006)
+	m_ppcPredYuvBest[uiSrcDepth]->copyToPicYuv( rpcPic->getPicYuvPred(), uiCUAddr, uiAbsPartIdx, uiDepth - uiSrcDepth, uiPartIdx);
+#endif
   }
   else
   {
@@ -1670,6 +1701,9 @@ Void TEncCu::xCopyYuv2Tmp( UInt uiPartUnitIdx, UInt uiNextDepth )
 {
   UInt uiCurrDepth = uiNextDepth - 1;
   m_ppcRecoYuvBest[uiNextDepth]->copyToPartYuv( m_ppcRecoYuvTemp[uiCurrDepth], uiPartUnitIdx );
+#if defined(X264_RATECONTROL_2006)
+  m_ppcPredYuvBest[uiNextDepth]->copyToPartYuv( m_ppcPredYuvTemp[uiCurrDepth], uiPartUnitIdx );
+#endif
 }
 
 /** Function for filling the PCM buffer of a CU using its original sample array 

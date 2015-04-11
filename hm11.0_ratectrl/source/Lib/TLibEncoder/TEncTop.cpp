@@ -38,6 +38,7 @@
 #include "TLibCommon/CommonDef.h"
 #include "TEncTop.h"
 #include "TEncPic.h"
+#include "TEncRateCtrl.h"
 #if FAST_BIT_EST
 #include "TLibCommon/ContextModel.h"
 #endif
@@ -86,6 +87,90 @@ TEncTop::~TEncTop()
 #endif
 }
 
+#ifdef X264_RATECONTROL_2006
+void    x264_param_default( x264_param_t *param )
+{
+	/* */
+	memset( param, 0, sizeof( x264_param_t ) );
+
+	/* CPU autodetect */
+
+	/* Video properties */
+	param->i_width         = 0;
+	param->i_height        = 0;
+	param->i_fps_num       = 25;
+	param->i_fps_den       = 1;
+
+	/* Encoder parameters */
+	param->i_frame_reference = 1;
+	param->i_keyint_max = 250;
+	param->i_keyint_min = 25;
+	param->i_bframe = 0;
+	param->i_scenecut_threshold = 40;
+	param->b_bframe_adaptive = 1;
+	param->i_bframe_bias = 0;
+	param->b_bframe_pyramid = 0;
+
+	param->b_deblocking_filter = 1;
+	param->i_deblocking_filter_alphac0 = 0;
+	param->i_deblocking_filter_beta = 0;
+
+	param->b_cabac = 1;
+	param->i_cabac_init_idc = 0;
+
+    param->rc.i_rc_method = X264_RC_CQP;
+	param->rc.b_cbr = 0;
+	param->rc.i_bitrate = 0;
+	param->rc.f_rate_tolerance = 1.0;
+	param->rc.i_vbv_max_bitrate = 0;
+	param->rc.i_vbv_buffer_size = 0;
+	param->rc.f_vbv_buffer_init = 0.9;
+	param->rc.i_qp_constant = 26;
+	param->rc.i_rf_constant = -1;
+	param->rc.i_qp_min = 0;
+	param->rc.i_qp_max = 51;
+
+	param->rc.f_ip_factor = 1;//1.4;
+	param->rc.f_pb_factor = 1;//1.3;
+
+	param->rc.f_qcompress = 0.6;
+	param->rc.f_qblur = 0.5;
+	param->rc.f_complexity_blur = 20;
+
+	/* Log */
+//	param->pf_log = x264_log_default;
+	param->p_log_private = NULL;
+	param->i_log_level = X264_LOG_INFO;
+
+	/* */
+	param->analyse.intra = X264_ANALYSE_I4x4 | X264_ANALYSE_I8x8;
+	param->analyse.inter = X264_ANALYSE_I4x4 | X264_ANALYSE_I8x8
+		| X264_ANALYSE_PSUB16x16 | X264_ANALYSE_BSUB16x16;
+	param->analyse.i_direct_mv_pred = X264_DIRECT_PRED_SPATIAL;
+	param->analyse.i_me_method = X264_ME_HEX;
+	param->analyse.i_me_range = 16;
+	param->analyse.i_subpel_refine = 5;
+	param->analyse.b_chroma_me = 1;
+	param->analyse.i_mv_range = -1; // set from level_idc
+	param->analyse.i_chroma_qp_offset = 0;
+	param->analyse.b_fast_pskip = 1;
+	param->analyse.b_psnr = 1;
+#if 0
+	param->i_cqm_preset = X264_CQM_FLAT;
+	memset( param->cqm_4iy, 16, 16 );
+	memset( param->cqm_4ic, 16, 16 );
+	memset( param->cqm_4py, 16, 16 );
+	memset( param->cqm_4pc, 16, 16 );
+	memset( param->cqm_8iy, 16, 64 );
+	memset( param->cqm_8py, 16, 64 );
+#endif
+
+	param->b_repeat_headers = 1;
+	param->b_aud = 0;
+}
+
+#endif
+
 Void TEncTop::create ()
 {
   // initialize global variables
@@ -110,7 +195,42 @@ Void TEncTop::create ()
   }
 #endif
   m_cLoopFilter.        create( g_uiMaxCUDepth );
-  
+#ifdef X264_RATECONTROL_2006
+  x264_param_default(&m_param);
+  m_param.i_width         = getSourceWidth();
+  m_param.i_height        = getSourceHeight();
+
+  m_param.i_fps_num       = getFrameRate();
+  m_param.i_fps_den       = 1;
+
+  m_param.rc.i_qp_constant=getQP();
+  m_param.rc.i_bitrate = getTargetBitrate();
+  if(m_param.rc.i_bitrate>0) {
+//	  m_param.rc.b_cbr = 1;
+	  m_param.rc.i_rc_method = X264_RC_ABR;
+  }
+  extern Int ConstRF;
+  m_param.rc.i_rf_constant=ConstRF;
+  if(m_param.rc.i_rf_constant>0.0) {
+	  m_param.rc.i_rc_method = X264_RC_CRF;
+  }
+  extern Double RateTol;
+  m_param.rc.f_rate_tolerance=RateTol;
+  extern Bool LCURC;
+  m_param.rc.b_lcurc=LCURC;
+  extern Int QPStep;
+  m_param.rc.i_qp_step=QPStep;
+
+  extern Int VBV_MaxRate;
+  extern Int VBV_BufSize;
+  extern Double VBV_Init;
+  m_param.rc.i_vbv_max_bitrate = VBV_MaxRate;
+  m_param.rc.i_vbv_buffer_size = VBV_BufSize;
+  m_param.rc.f_vbv_buffer_init=VBV_Init;
+  memset(&m_x264RC, 0, sizeof(x264_ratecontrol_t));
+  x264_ratecontrol_new(&m_x264RC, &m_param, g_uiMaxCUWidth, g_uiMaxCUHeight);
+#else
+
 #if RATE_CONTROL_LAMBDA_DOMAIN
   if ( m_RCEnableRateControl )
   {
@@ -119,6 +239,7 @@ Void TEncTop::create ()
   }
 #else
   m_cRateCtrl.create(getIntraPeriod(), getGOPSize(), getFrameRate(), getTargetBitrate(), getQP(), getNumLCUInUnit(), getSourceWidth(), getSourceHeight(), g_uiMaxCUWidth, g_uiMaxCUHeight);
+#endif
 #endif
   // if SBAC-based RD optimization is used
   if( m_bUseSBACRD )
@@ -215,7 +336,11 @@ Void TEncTop::destroy ()
     m_cEncSAO.destroyEncBuffer();
   }
   m_cLoopFilter.        destroy();
+#ifdef X264_RATECONTROL_2006
+  x264_ratecontrol_delete(&m_x264RC, &m_param);
+#else
   m_cRateCtrl.          destroy();
+#endif
   // SBAC RD
   if( m_bUseSBACRD )
   {
@@ -628,6 +753,13 @@ Void TEncTop::xInitPPS()
     m_cPPS.setMaxCuDQPDepth( 0 );
     m_cPPS.setMinCuDQPSize( m_cPPS.getSPS()->getMaxCUWidth() >> ( m_cPPS.getMaxCuDQPDepth()) );
   } 
+#endif
+#if defined(X264_RATECONTROL_2006)//&&defined(_LCU_RC_)
+  if(m_param.b_variable_qp||m_param.rc.b_lcurc){
+    m_cPPS.setUseDQP(true);
+    m_cPPS.setMaxCuDQPDepth( 0 );
+    m_cPPS.setMinCuDQPSize( m_cPPS.getSPS()->getMaxCUWidth() >> ( m_cPPS.getMaxCuDQPDepth()) );
+  }
 #endif
 
   m_cPPS.setChromaCbQpOffset( m_chromaCbQpOffset );

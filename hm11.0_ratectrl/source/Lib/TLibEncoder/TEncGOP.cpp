@@ -1662,8 +1662,10 @@ Void TEncGOP::compressGOP( Int iPOCLast, Int iNumPicRcvd, TComList<TComPic*>& rc
 #else
       if(m_pcCfg->getUseRateCtrl())
       {
+#ifndef X264_RATECONTROL_2006
         UInt  frameBits = m_vRVM_RP[m_vRVM_RP.size()-1];
         m_pcRateCtrl->updataRCFrameStatus((Int)frameBits, pcSlice->getSliceType());
+#endif
       }
 #endif
 
@@ -1848,7 +1850,9 @@ Void TEncGOP::compressGOP( Int iPOCLast, Int iNumPicRcvd, TComList<TComPic*>& rc
 #if !RATE_CONTROL_LAMBDA_DOMAIN
   if(m_pcCfg->getUseRateCtrl())
   {
+#ifndef X264_RATECONTROL_2006
     m_pcRateCtrl->updateRCGOPStatus();
+#endif
   }
 #endif
   delete pcBitstreamRedirect;
@@ -2109,6 +2113,28 @@ Void TEncGOP::xCalculateAddPSNR( TComPic* pcPic, TComPicYuv* pcPicD, const Acces
     pOrg += iStride;
     pRec += iStride;
   }
+#if 0
+  //calculate the variance of current frame
+  {
+
+	  double var=0,mea=0;
+	  Pel* org=pcPic ->getPicYuvOrg()->getLumaAddr();
+  for( y = 0; y < iHeight; y++ )
+  {
+    for( x = 0; x < iWidth; x++ )
+    {
+		double pixel=org[x];
+	  mea+=pixel;
+	  var+=pixel*pixel;
+    }
+    org += iStride;
+  }
+  mea/=(iHeight*iWidth);
+  var=var/(iHeight*iWidth)-mea*mea;
+  printf("var= %f ",var);
+  }
+
+#endif
   
   iHeight >>= 1;
   iWidth  >>= 1;
@@ -2168,6 +2194,11 @@ Void TEncGOP::xCalculateAddPSNR( TComPic* pcPic, TComPicYuv* pcPicD, const Acces
 
   UInt uibits = numRBSPBytes * 8;
   m_vRVM_RP.push_back( uibits );
+#if defined(X264_RATECONTROL_2006)
+
+	x264_ratecontrol_end(m_pcSliceEncoder->m_pcRateCtrl, m_pcSliceEncoder->m_pcParam,uibits, m_pcSliceEncoder->m_pcRateCtrl->last_satd);
+
+#endif
 
   //===== add PSNR =====
   m_gcAnalyzeAll.addResult (dYPSNR, dUPSNR, dVPSNR, (Double)uibits);
@@ -2189,11 +2220,12 @@ Void TEncGOP::xCalculateAddPSNR( TComPic* pcPic, TComPicYuv* pcPicD, const Acces
   if (!pcSlice->isReferenced()) c += 32;
 
 #if ADAPTIVE_QP_SELECTION
-  printf("POC %4d TId: %1d ( %c-SLICE, nQP %d QP %d ) %10d bits",
+  printf("POC %4d TId: %1d ( %c-SLICE, nQP %.2f QP %d ) %10d bits",
          pcSlice->getPOC(),
          pcSlice->getTLayer(),
          c,
-         pcSlice->getSliceQpBase(),
+  //       pcSlice->getSliceQpBase(),
+  m_pcSliceEncoder->m_pcRateCtrl->qpa,
          pcSlice->getSliceQp(),
          uibits );
 #else

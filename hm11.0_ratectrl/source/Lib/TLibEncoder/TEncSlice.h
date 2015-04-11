@@ -92,6 +92,9 @@ private:
   UInt64                  m_uiPicTotalBits;                     ///< total bits for the picture
   UInt64                  m_uiPicDist;                          ///< total distortion for the picture
   Double                  m_dPicRdCost;                         ///< picture-level RD cost
+#ifdef X264_RATECONTROL_2006
+  UInt64				  m_uiPicSAD;
+#endif
   Double*                 m_pdRdPicLambda;                      ///< array of lambda candidates
   Double*                 m_pdRdPicQp;                          ///< array of picture QP candidates (double-type for lambda)
   Int*                    m_piRdPicQp;                          ///< array of picture QP candidates (Int-type)
@@ -99,7 +102,15 @@ private:
   TEncSbac*               m_pcBufferSbacCoders;                 ///< line to store temporary contexts
   TEncBinCABAC*           m_pcBufferLowLatBinCoderCABACs;       ///< dependent tiles: line of bin coder CABAC
   TEncSbac*               m_pcBufferLowLatSbacCoders;           ///< dependent tiles: line to store temporary contexts
-  TEncRateCtrl*           m_pcRateCtrl;                         ///< Rate control manager
+                        ///< Rate control manager
+#ifdef X264_RATECONTROL_2006
+public:
+  x264_ratecontrol_t*	  m_pcRateCtrl;
+  x264_param_t* m_pcParam;
+private:
+#else
+  TEncRateCtrl*           m_pcRateCtrl; 
+#endif
   UInt                    m_uiSliceIdx;
   std::vector<TEncSbac*> CTXMem;
 public:

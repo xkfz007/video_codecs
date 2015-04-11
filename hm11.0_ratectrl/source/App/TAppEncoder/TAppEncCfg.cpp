@@ -240,6 +240,13 @@ static istream& operator>>(istream &in, Level::Name &level)
     \param  argv        array of arguments
     \retval             true when success
  */
+Double RateTol;
+Int ConstRF;
+Bool LCURC;
+Int VBV_MaxRate;
+Int VBV_BufSize;
+Double VBV_Init;
+Int QPStep;
 Bool TAppEncCfg::parseCfg( Int argc, Char* argv[] )
 {
   Bool do_help = false;
@@ -430,8 +437,15 @@ Bool TAppEncCfg::parseCfg( Int argc, Char* argv[] )
   ( "RCForceIntraQP",      m_RCForceIntraQP,        false, "Rate control: force intra QP to be equal to initial QP" )
 #else
   ("RateCtrl,-rc", m_enableRateCtrl, false, "Rate control on/off")
-  ("TargetBitrate,-tbr", m_targetBitrate, 0, "Input target bitrate")
+  ("TargetBitrate,-tbr", m_targetBitrate, 0, "Input target bitrate(kbps)")
   ("NumLCUInUnit,-nu", m_numLCUInUnit, 0, "Number of LCUs in an Unit")
+  ("RateTol,-rt",RateTol,1.0,"Rate tolerance for RC accuracy")
+  ("ConstRF,-crf",ConstRF,-1,"Quality-based VBR (0-51) [23.0]")
+  ("QPStep",QPStep,1,"Set max QP step [1]")
+  ("VBV-MaxRate",VBV_MaxRate,0,"Max local bitrate (kbit/s) [0]")
+  ("VBV-BufSize",VBV_BufSize,0,"Set size of the VBV buffer (kbit) [0]")
+  ("VBV-Init",VBV_Init,0.9,"Initial VBV buffer occupancy [0.9]")
+  ("LCURC,-lrc",LCURC,false,"LCU level Rate Control")
 #endif
 
   ("TransquantBypassEnableFlag", m_TransquantBypassEnableFlag, false, "transquant_bypass_enable_flag indicator in PPS")
@@ -557,7 +571,13 @@ Bool TAppEncCfg::parseCfg( Int argc, Char* argv[] )
   m_pchBitstreamFile = cfg_BitstreamFile.empty() ? NULL : strdup(cfg_BitstreamFile.c_str());
   m_pchReconFile = cfg_ReconFile.empty() ? NULL : strdup(cfg_ReconFile.c_str());
   m_pchdQPFile = cfg_dQPFile.empty() ? NULL : strdup(cfg_dQPFile.c_str());
-  
+
+  extern string seqname;
+  int pos=cfg_InputFile.find_last_of('\\');
+  if(pos==string::npos)
+	  pos=cfg_InputFile.find_last_of('/');
+  seqname=cfg_InputFile.substr(pos+1);
+
   Char* pColumnWidth = cfg_ColumnWidth.empty() ? NULL: strdup(cfg_ColumnWidth.c_str());
   Char* pRowHeight = cfg_RowHeight.empty() ? NULL : strdup(cfg_RowHeight.c_str());
   if( m_iUniformSpacingIdr == 0 && m_iNumColumnsMinus1 > 0 )
@@ -1329,6 +1349,7 @@ Void TAppEncCfg::xCheckParameter()
 #else
   if(m_enableRateCtrl)
   {
+#ifndef X264_RATECONTROL_2006
     Int numLCUInWidth  = (m_iSourceWidth  / m_uiMaxCUWidth) + (( m_iSourceWidth  %  m_uiMaxCUWidth ) ? 1 : 0);
     Int numLCUInHeight = (m_iSourceHeight / m_uiMaxCUHeight)+ (( m_iSourceHeight %  m_uiMaxCUHeight) ? 1 : 0);
     Int numLCUInPic    =  numLCUInWidth * numLCUInHeight;
@@ -1337,6 +1358,7 @@ Void TAppEncCfg::xCheckParameter()
 
     m_iMaxDeltaQP       = MAX_DELTA_QP;
     m_iMaxCuDQPDepth    = MAX_CUDQP_DEPTH;
+#endif
   }
 #endif
 
@@ -1423,6 +1445,13 @@ Void TAppEncCfg::xPrintParameter()
   {
     printf("TargetBitrate                : %d\n", m_targetBitrate);
     printf("NumLCUInUnit                 : %d\n", m_numLCUInUnit);
+	printf("RateTolerance                : %4.2f\n",RateTol);
+	printf("QPStep                       : %d\n",QPStep);
+	printf("ConstRateFactor              : %d\n",ConstRF);
+	printf("VBV-MaxRate                  : %d\n",VBV_MaxRate);
+	printf("VBV-BufSize                  : %d\n",VBV_BufSize);
+	printf("VBV-Init                     : %4.2f\n",VBV_Init);
+	printf("LCURC                        : %d\n", LCURC);
   }
 #endif
   printf("Max Num Merge Candidates     : %d\n", m_maxNumMergeCand);

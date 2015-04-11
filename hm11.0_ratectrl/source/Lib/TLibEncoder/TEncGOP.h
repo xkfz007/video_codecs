@@ -99,7 +99,13 @@ private:
   //--Adaptive Loop filter
   TEncSampleAdaptiveOffset*  m_pcSAO;
   TComBitCounter*         m_pcBitCounter;
+
+#ifdef X264_RATECONTROL_2006
+  x264_ratecontrol_t*	  m_pcRateCtrl;
+#else
   TEncRateCtrl*           m_pcRateCtrl;
+#endif
+
   // indicate sequence first
   Bool                    m_bSeqFirst;
   
@@ -143,7 +149,7 @@ public:
   NalUnitType getNalUnitType( Int pocCurr, Int lastIdr );
   Void arrangeLongtermPicturesInRPS(TComSlice *, TComList<TComPic*>& );
 protected:
-  TEncRateCtrl* getRateCtrl()       { return m_pcRateCtrl;  }
+//  TEncRateCtrl* getRateCtrl()       { return m_pcRateCtrl;  }
 
 protected:
   Void  xInitGOP          ( Int iPOC, Int iNumPicRcvd, TComList<TComPic*>& rcListPic, TComList<TComPicYuv*>& rcListPicYuvRecOut );

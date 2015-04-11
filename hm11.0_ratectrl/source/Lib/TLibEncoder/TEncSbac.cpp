@@ -801,7 +801,8 @@ Void TEncSbac::codeMvd( TComDataCU* pcCU, UInt uiAbsPartIdx, RefPicList eRefList
 Void TEncSbac::codeDeltaQP( TComDataCU* pcCU, UInt uiAbsPartIdx )
 {
   Int iDQp  = pcCU->getQP( uiAbsPartIdx ) - pcCU->getRefQP( uiAbsPartIdx );
-  
+//  printf("[%d,%d,%d:(%d,%d,%d)] \n",pcCU->getQP( uiAbsPartIdx ),pcCU->getRefQP( uiAbsPartIdx ),iDQp,
+//	  pcCU->getAddr(),uiAbsPartIdx,pcCU->getZorderIdxInCU());
   Int qpBdOffsetY =  pcCU->getSlice()->getSPS()->getQpBDOffsetY();
   iDQp = (iDQp + 78 + qpBdOffsetY + (qpBdOffsetY/2)) % (52 + qpBdOffsetY) - 26 - (qpBdOffsetY/2);
 

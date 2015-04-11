@@ -348,6 +348,7 @@ Void TEncEntropy::xEncodeTransform( TComDataCU* pcCU,UInt offsetLuma, UInt offse
       {
         if ( bCodeDQP )
         {
+//		  printf("%s => ",__FUNCTION__);
           encodeQP( pcCU, m_bakAbsPartIdxCU );
           bCodeDQP = false;
         }
@@ -558,6 +559,7 @@ Void TEncEntropy::encodeQtRootCbfZero( TComDataCU* pcCU )
 // dQP
 Void TEncEntropy::encodeQP( TComDataCU* pcCU, UInt uiAbsPartIdx, Bool bRD )
 {
+//	printf("%s ",__FUNCTION__);
   if( bRD )
   {
     uiAbsPartIdx = 0;

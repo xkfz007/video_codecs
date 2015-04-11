@@ -1029,6 +1029,14 @@ TEncSearch::xIntraCodingLumaBlk( TComDataCU* pcCU,
 #endif
   Pel*    piRecQt           = m_pcQTTempTComYuv[ uiQTLayer ].getLumaAddr( uiAbsPartIdx );
   UInt    uiRecQtStride     = m_pcQTTempTComYuv[ uiQTLayer ].getStride  ();
+#if _USE_PRED_
+  //added by hfz
+  piReco=piRecQt;
+ // if(uiStride==uiRecQtStride) 
+//	  printf("\033[33mOK\033[0m ");
+ // else
+//	  printf("\033[31mNO\033[0m ");
+#endif
   
   UInt    uiZOrder          = pcCU->getZorderIdxInCU() + uiAbsPartIdx;
   Pel*    piRecIPred        = pcCU->getPic()->getPicYuvRec()->getLumaAddr( pcCU->getAddr(), uiZOrder );
@@ -1146,19 +1154,30 @@ TEncSearch::xIntraCodingLumaBlk( TComDataCU* pcCU,
       for( UInt uiX = 0; uiX < uiWidth; uiX++ )
       {
         pReco    [ uiX ] = ClipY( pPred[ uiX ] + pResi[ uiX ] );
+#if !_USE_PRED_
         pRecQt   [ uiX ] = pReco[ uiX ];
+#endif
         pRecIPred[ uiX ] = pReco[ uiX ];
       }
       pPred     += uiStride;
       pResi     += uiStride;
+#if !_USE_PRED_
       pReco     += uiStride;
+#else
+      pReco     += uiRecQtStride;
+#endif
       pRecQt    += uiRecQtStride;
       pRecIPred += uiRecIPredStride;
     }
   }
   
   //===== update distortion =====
+#if !_USE_PRED_
   ruiDist += m_pcRdCost->getDistPart(g_bitDepthY, piReco, uiStride, piOrg, uiStride, uiWidth, uiHeight );
+#else
+  ruiDist += m_pcRdCost->getDistPart(g_bitDepthY, piReco, uiRecQtStride, piOrg, uiStride, uiWidth, uiHeight );
+#endif
+
 }
 
 Void
@@ -1205,6 +1224,11 @@ TEncSearch::xIntraCodingChromaBlk( TComDataCU* pcCU,
 #endif
   Pel*      piRecQt           = ( uiChromaId > 0 ? m_pcQTTempTComYuv[ uiQTLayer ].getCrAddr( uiAbsPartIdx ) : m_pcQTTempTComYuv[ uiQTLayer ].getCbAddr( uiAbsPartIdx ) );
   UInt      uiRecQtStride     = m_pcQTTempTComYuv[ uiQTLayer ].getCStride();
+#if _USE_PRED_
+  //added by hfz
+  piReco=piRecQt;
+#endif
+
   
   UInt      uiZOrder          = pcCU->getZorderIdxInCU() + uiAbsPartIdx;
   Pel*      piRecIPred        = ( uiChromaId > 0 ? pcCU->getPic()->getPicYuvRec()->getCrAddr( pcCU->getAddr(), uiZOrder ) : pcCU->getPic()->getPicYuvRec()->getCbAddr( pcCU->getAddr(), uiZOrder ) );
@@ -1346,17 +1370,29 @@ TEncSearch::xIntraCodingChromaBlk( TComDataCU* pcCU,
       }
       pPred     += uiStride;
       pResi     += uiStride;
+#if !_USE_PRED_
       pReco     += uiStride;
+#else
+      pReco     += uiRecQtStride;
+#endif
       pRecQt    += uiRecQtStride;
       pRecIPred += uiRecIPredStride;
     }
   }
   
   //===== update distortion =====
+#if !_USE_PRED_
 #if WEIGHTED_CHROMA_DISTORTION
   ruiDist += m_pcRdCost->getDistPart(g_bitDepthC, piReco, uiStride, piOrg, uiStride, uiWidth, uiHeight, eText );
 #else
   ruiDist += m_pcRdCost->getDistPart(g_bitDepthC, piReco, uiStride, piOrg, uiStride, uiWidth, uiHeight );
+#endif
+#else
+#if WEIGHTED_CHROMA_DISTORTION
+  ruiDist += m_pcRdCost->getDistPart(g_bitDepthC, piReco, uiRecQtStride, piOrg, uiStride, uiWidth, uiHeight, eText );
+#else
+  ruiDist += m_pcRdCost->getDistPart(g_bitDepthC, piReco, uiRecQtStride, piOrg, uiStride, uiWidth, uiHeight );
+#endif
 #endif
 }
 

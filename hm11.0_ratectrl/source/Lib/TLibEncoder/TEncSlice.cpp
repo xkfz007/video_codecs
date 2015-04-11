@@ -37,6 +37,7 @@
 
 #include "TEncTop.h"
 #include "TEncSlice.h"
+#include "TEncRateCtrl.h"
 #include <math.h>
 
 //! \ingroup TLibEncoder
@@ -157,6 +158,9 @@ Void TEncSlice::init( TEncTop* pcEncTop )
   m_pdRdPicQp         = (Double*)xMalloc( Double, m_pcCfg->getDeltaQpRD() * 2 + 1 );
   m_piRdPicQp         = (Int*   )xMalloc( Int,    m_pcCfg->getDeltaQpRD() * 2 + 1 );
   m_pcRateCtrl        = pcEncTop->getRateCtrl();
+#ifdef X264_RATECONTROL_2006
+  m_pcParam			  = pcEncTop->getParam();
+#endif
 }
 
 /**
@@ -175,6 +179,7 @@ Void TEncSlice::init( TEncTop* pcEncTop )
  \param pSPS          SPS associated with the slice
  \param pPPS          PPS associated with the slice
  */
+string seqname;
 Void TEncSlice::initEncSlice( TComPic* pcPic, Int pocLast, Int pocCurr, Int iNumPicRcvd, Int iGOPid, TComSlice*& rpcSlice, TComSPS* pSPS, TComPPS *pPPS )
 {
   Double dQP;
@@ -244,6 +249,173 @@ Void TEncSlice::initEncSlice( TComPic* pcPic, Int pocLast, Int pocCurr, Int iNum
   // ------------------------------------------------------------------------------------------------------------------
   
   dQP = m_pcCfg->getQP();
+#ifdef X264_RATECONTROL_2006
+  if ( m_pcCfg->getUseRateCtrl())
+  {
+#if _USE_STD_PRED_
+ {
+	 double std_val=MAX_DOUBLE;
+	 extern int pixel_sad2_wxh(Pel *pix1, int i_stride_pix1, int i_width,int i_height) ;
+	 extern int pixel_satd2_wxh( Pel*pix, int i_stride_pix1, int i_width, int i_height );
+	 int (*pixel_func)(Pel*,int,int,int)=pixel_sad2_wxh;
+	 double lambda=15;
+#if 0
+	 UInt uiEncCUOrder;
+	 UInt   uiStartCUAddr;
+	 UInt  uiCUAddr;
+	 UInt   uiBoundingCUAddr;
+	 extern double pixel_var_wxh(Pel *pix1, int i_stride_pix1, int i_width,int i_height) ;
+	 TComSlice* pcSlice            = pcPic->getSlice(getSliceIdx());
+	 xDetermineStartAndBoundingCUAddr ( uiStartCUAddr, uiBoundingCUAddr, pcPic, false );
+	 uiCUAddr = pcPic->getPicSym()->getCUOrderMap( uiStartCUAddr /pcPic->getNumPartInCU());
+	 static int no=0;
+	 for( uiEncCUOrder = uiStartCUAddr/pcPic->getNumPartInCU();
+		 uiEncCUOrder < (uiBoundingCUAddr+(pcPic->getNumPartInCU()-1))/pcPic->getNumPartInCU();
+		 uiCUAddr = pcPic->getPicSym()->getCUOrderMap(++uiEncCUOrder) )
+	 {
+		 no++;
+		 // initialize CU encoder
+		 TComDataCU*& pcCU = pcPic->getCU( uiCUAddr );
+		 pcCU->initCU( pcPic, uiCUAddr );
+		// printf("%d ",uiCUAddr);
+		 Pel*  pOrg_Y   = pcCU->getPic()->getPicYuvOrg()->getLumaAddr(pcCU->getAddr(), 0);
+		 Pel*  pOrg_U   = pcCU->getPic()->getPicYuvOrg()->getCbAddr(pcCU->getAddr(), 0);
+		 Pel*  pOrg_V   = pcCU->getPic()->getPicYuvOrg()->getCrAddr(pcCU->getAddr(), 0);  
+		 Int   stride = pcCU->getPic()->getStride();
+		 Int   cstride = pcCU->getPic()->getCStride();
+		 Int height  = min( pcSlice->getSPS()->getMaxCUHeight(),pcSlice->getSPS()->getPicHeightInLumaSamples() - uiCUAddr / pcPic->getFrameWidthInCU() * pcSlice->getSPS()->getMaxCUHeight() );
+		 Int width   = min( pcSlice->getSPS()->getMaxCUWidth(),pcSlice->getSPS()->getPicWidthInLumaSamples() - uiCUAddr % pcPic->getFrameWidthInCU() * pcSlice->getSPS()->getMaxCUWidth() );
+		 printf("height=%d width=%d [%d]\n",height,width,no);
+
+		 std_val+=pixel_var2_wxh(pOrg_Y,stride,width,height);
+		 std_val+=pixel_var2_wxh(pOrg_U,cstride,width>>1,height>>1);
+		 std_val+=pixel_var2_wxh(pOrg_V,cstride,width>>1,height>>1);
+	 }
+#endif
+	 if(m_pcRateCtrl->i_frame==0)
+	 {
+		 TComPicYuv* picYuvOrg=pcPic->getPicYuvOrg();
+		 int picHeight=picYuvOrg->getHeight(),
+			 picWidth=picYuvOrg->getWidth();
+		 int stride=picYuvOrg->getStride(),
+			 cstride=picYuvOrg->getCStride();
+		 Pel* pOrg_Y=picYuvOrg->getLumaAddr(),
+			 *pOrg_U=picYuvOrg->getCbAddr(),
+			 *pOrg_V=picYuvOrg->getCrAddr();
+		// int all_steps[]={32};
+		 int step;
+		 int std_val_tmp;
+		 // int no=0;
+
+#if _USE_REAL_SATD_
+			pixel_func=pixel_satd2_wxh;
+			lambda=80;
+#endif
+
+#if 0
+		 //for(int i=0;i<sizeof(all_steps)/sizeof(all_steps[0]);i++){
+		//	 step=all_steps[i];
+			 std_val_tmp=0;
+		 step=4;
+
+			 for(int y=0;y<picHeight;y+=step){
+				 for(int x=0;x<picWidth;x+=step){
+					 h=min(step,picHeight-y);
+					 w=min(step,picWidth-x);
+					 //	 no++;
+					 //	 printf("Luma: height=%d width=%d [%d]\n",h,w,no);
+					 std_val_tmp+=pixel_func(pOrg_Y+y*stride+x,stride,w,h);
+				 }
+			 }
+			 //		 no=0;
+			 for(int y=0;y<picHeight/2;y+=step/2){
+				 for(int x=0;x<picWidth/2;x+=step/2){
+					 h=min(step/2,picHeight/2-y);
+					 w=min(step/2,picWidth/2-x);
+					 //	 no++;
+					 //	 printf("Chroma: height=%d width=%d [%d]\n",h,w,no);
+					 std_val_tmp+=pixel_func(pOrg_U+y*cstride+x,cstride,w,h);
+					 std_val_tmp+=pixel_func(pOrg_V+y*cstride+x,cstride,w,h);
+				 }
+			 }
+		//	 if(std_val>std_val_tmp){
+				 std_val=std_val_tmp;
+		//	 }
+		// }
+#else
+		 std_val=0;
+		 int no=0;
+		 int lcu_sz=64;
+		 int all_steps[]={64,32,16,8,4};
+		 for(int y=0;y<picHeight;y+=lcu_sz){
+			 for(int x=0;x<picWidth;x+=lcu_sz){
+				 int lcu_h=min(lcu_sz,picHeight-y),
+					 lcu_w=min(lcu_sz,picWidth-x);
+				 no++;
+//				 printf("[%d]:lcu_h=%d lcu_w=%d \n",no,lcu_h,lcu_w);
+				 Pel* lcu_pos_Y=pOrg_Y+y*stride+x;
+				 Pel* lcu_pos_U=pOrg_U+y/2*cstride+x/2;
+				 Pel* lcu_pos_V=pOrg_V+y/2*cstride+x/2;
+				 double cost=MAX_DOUBLE;
+				 int lcu_std_val;
+				 int step_best=lcu_sz;
+				 for(int i=0;i<sizeof(all_steps)/sizeof(all_steps[0]);i++){
+					 step=all_steps[i];
+					 std_val_tmp=0;
+					 double cost_tmp=0;
+					 //printf("\tstep=%d \n",step);
+					 int no2=0;
+					 for(int yy=0;yy<lcu_h;yy+=step){
+						 for(int xx=0;xx<lcu_w;xx+=step){
+						 int h=min(step,lcu_h-yy),
+							 w=min(step,lcu_w-xx);
+						 no2++;
+					//	 printf("\t\t[%d] h=%d w=%d \n",no2,h,w);
+						 std_val_tmp+=pixel_func(lcu_pos_Y+yy*stride+xx,stride,w,h);
+						 }
+					 }
+					 cost_tmp=std_val_tmp;
+					 cost_tmp+=lambda*log(step*1.0)/log(2.0)*lcu_sz*lcu_sz/step/step;
+					 //printf("\t\tstd_val_tmp=%f\n",std_val_tmp);
+					 if(cost>cost_tmp){
+						 cost=cost_tmp;
+						 lcu_std_val=std_val_tmp;
+						 step_best=step;
+					 }
+				 }//for(all_steps)
+
+				 for(int yy=0;yy<lcu_h/2;yy+=step_best/2){
+					 for(int xx=0;xx<lcu_w/2;xx+=step_best/2){
+						 int h=min(step_best/2,lcu_h/2-yy),
+							 w=min(step_best/2,lcu_w/2-xx);
+						 lcu_std_val+=pixel_func(lcu_pos_U+yy*cstride+xx,cstride,w,h);
+						 lcu_std_val+=pixel_func(lcu_pos_V+yy*cstride+xx,cstride,w,h);
+					 }
+				 }
+
+				 std_val+=lcu_std_val;
+				 if(m_pcParam->b_variable_qp)
+					 m_pcRateCtrl->i_row_satd_last[y/lcu_sz]+=lcu_std_val;
+			 }
+		//	 printf("%d: %d\n",y/lcu_sz,m_pcRateCtrl->i_row_satd_last[y/lcu_sz]);
+		 }
+#endif
+		 m_pcRateCtrl->std_val=std_val;
+	 }
+ }
+#endif
+ {
+	 m_pcRateCtrl->qp_factor=m_pcCfg->getGOPEntry(iGOPid).m_QPFactor;
+	 m_pcRateCtrl->qp_offset=m_pcCfg->getGOPEntry(iGOPid).m_QPOffset;
+	 extern double qp_factor;
+//	 qp_factor=m_pcRateCtrl->qp_factor;
+ }
+
+	  x264_ratecontrol_start( m_pcRateCtrl, m_pcParam, eSliceType, 0);
+	  dQP = x264_ratecontrol_qp( m_pcRateCtrl );
+	  m_pcRateCtrl->gop_id=iGOPid;
+  }
+#else
   if(eSliceType!=I_SLICE)
   {
     if (!(( m_pcCfg->getMaxDeltaQP() == 0 ) && (dQP == -rpcSlice->getSPS()->getQpBDOffsetY() ) && (rpcSlice->getSPS()->getUseLossless()))) 
@@ -258,11 +430,15 @@ Void TEncSlice::initEncSlice( TComPic* pcPic, Int pocLast, Int pocCurr, Int iNum
   {
     dQP += pdQPs[ rpcSlice->getPOC() ];
   }
+#endif
+
 #if !RATE_CONTROL_LAMBDA_DOMAIN
+#ifndef X264_RATECONTROL_2006
   if ( m_pcCfg->getUseRateCtrl())
   {
     dQP = m_pcRateCtrl->getFrameQP(rpcSlice->isReferenced(), rpcSlice->getPOC());
   }
+#endif
 #endif
   // ------------------------------------------------------------------------------------------------------------------
   // Lambda computation
@@ -812,6 +988,9 @@ Void TEncSlice::compressSlice( TComPic*& rpcPic )
   m_uiPicTotalBits  = 0;
   m_dPicRdCost      = 0;
   m_uiPicDist       = 0;
+#ifdef X264_RATECONTROL_2006
+  m_uiPicSAD        = 0;
+#endif
   
   // set entropy coder
   if( m_pcCfg->getUseSBACRD() )
@@ -964,14 +1143,23 @@ Void TEncSlice::compressSlice( TComPic*& rpcPic )
     // initialize CU encoder
     TComDataCU*& pcCU = rpcPic->getCU( uiCUAddr );
     pcCU->initCU( rpcPic, uiCUAddr );
+#if 0
+	  printf("[%d,%d] ",uiCUAddr,x264_ratecontrol_qp(m_pcRateCtrl));
+#endif
 
 #if !RATE_CONTROL_LAMBDA_DOMAIN
     if(m_pcCfg->getUseRateCtrl())
     {
+#ifndef X264_RATECONTROL_2006
       if(m_pcRateCtrl->calculateUnitQP())
       {
         xLamdaRecalculation(m_pcRateCtrl->getUnitQP(), m_pcRateCtrl->getGOPId(), pcSlice->getDepth(), pcSlice->getSliceType(), pcSlice->getSPS(), pcSlice );
       }
+#else
+		int qp_tmp=x264_ratecontrol_qp(m_pcRateCtrl);
+        xLamdaRecalculation(qp_tmp, m_pcRateCtrl->gop_id, pcSlice->getDepth(), pcSlice->getSliceType(), pcSlice->getSPS(), pcSlice );
+//		printf("qpm= %d ",m_pcRateCtrl->qpm);
+#endif
     }
 #endif
     // inherit from TR if necessary, select substream to use.
@@ -1251,8 +1439,103 @@ Void TEncSlice::compressSlice( TComPic*& rpcPic )
 #if !RATE_CONTROL_LAMBDA_DOMAIN
     if(m_pcCfg->getUseRateCtrl())
     {
+#ifndef X264_RATECONTROL_2006
       m_pcRateCtrl->updateLCUData(pcCU, pcCU->getTotalBits(), pcCU->getQP(0));
       m_pcRateCtrl->updataRCUnitStatus();
+#else
+		Int CuSAD=0;
+			Pel*  pOrg_Y   = pcCU->getPic()->getPicYuvOrg()->getLumaAddr(pcCU->getAddr(), 0);
+			Pel*  pOrg_U   = pcCU->getPic()->getPicYuvOrg()->getCbAddr(pcCU->getAddr(), 0);
+			Pel*  pOrg_V   = pcCU->getPic()->getPicYuvOrg()->getCrAddr(pcCU->getAddr(), 0);
+			Pel*  pPred_Y   = pcCU->getPic()->getPicYuvPred()->getLumaAddr(pcCU->getAddr(), 0);
+			Pel*  pPred_U   = pcCU->getPic()->getPicYuvPred()->getCbAddr(pcCU->getAddr(), 0);
+			Pel*  pPred_V   = pcCU->getPic()->getPicYuvPred()->getCrAddr(pcCU->getAddr(), 0);
+			Int   stride = pcCU->getPic()->getStride();
+			Int   cstride = pcCU->getPic()->getCStride();
+
+			Int height  = min( pcSlice->getSPS()->getMaxCUHeight(),pcSlice->getSPS()->getPicHeightInLumaSamples() - uiCUAddr / rpcPic->getFrameWidthInCU() * pcSlice->getSPS()->getMaxCUHeight() );
+			Int width   = min( pcSlice->getSPS()->getMaxCUWidth(),pcSlice->getSPS()->getPicWidthInLumaSamples() - uiCUAddr % rpcPic->getFrameWidthInCU() * pcSlice->getSPS()->getMaxCUWidth() );
+			extern int pixel_sad_wxh( Pel *pix1, int i_stride_pix1,  
+				Pel*pix2, int i_stride_pix2 ,int i_width,int i_height) ;
+			
+			extern int pixel_satd_wxh( Pel*pix1, int i_stride_pix1, 
+				Pel*pix2, int i_stride_pix2, int i_width, int i_height );
+			int (*pixel_func)(Pel*,int,Pel*,int,int,int)=pixel_sad_wxh;
+#if 0
+	//		printf("wid=%d height=%d\n",height,width);
+			FILE *py,*pu,*pv;
+			static int kk=0;
+			if(uiCUAddr==0)
+				kk=0;
+			if(kk==0){
+				py=fopen("pred_y.txt","w");
+				pu=fopen("pred_u.txt","w");
+//				pv=fopen("pred_v.txt","w");
+				kk++;
+			}
+			else{
+				py=fopen("pred_y.txt","a");
+				pu=fopen("pred_u.txt","a");
+//				pv=fopen("pred_v.txt","a");
+			}
+
+			for( y = 0; y < height; y++ )
+			{
+				for( x = 0; x < width; x++ )
+				{
+					CuSAD+= abs( pOrg_Y[x] - pPred_Y[x] );
+		//			fwrite(&pPred_Y[x],2,1,py);
+					fprintf(py,"%2d ",pPred_Y[x]);
+					fprintf(pu,"%2d ",pOrg_Y[x]);
+				}
+				fprintf(py,"\n");
+				fprintf(pu,"\n");
+				pOrg_Y += stride;
+				pPred_Y += stride;
+			}
+			//fprintf(py,"\n");
+			for( y = 0; y < height/2; y++ )
+			{
+				for( x = 0; x < width/2; x++ )
+				{
+					CuSAD+= abs( pOrg_U[x] - pPred_U[x] );
+					CuSAD+= abs( pOrg_V[x] - pPred_V[x] );
+		//			fwrite(&pPred_U[x],2,1,pu);
+			//		fprintf(pu,"%4d ",pPred_U[x]);
+		//		fprintf(py,"%2d %2d ",abs( pOrg_U[x] - pPred_U[x] )
+		//			,abs( pOrg_V[x] - pPred_V[x] ));
+		//			fprintf(pu,"%2d %2d ",pOrg_U[x],pOrg_V[x]);
+				}
+		//		fprintf(pu,"\n");
+		//		fprintf(pv,"\n");
+				pOrg_U += cstride;
+				pPred_U += cstride;
+				pOrg_V += cstride;
+				pPred_V += cstride;
+			}
+		//	fprintf(py,"\n");
+		//	fprintf(pu,"\n");
+			fclose(py);
+			fclose(pu);
+		//	fclose(pv);
+#else
+#if _USE_REAL_SATD_
+			pixel_func=pixel_satd_wxh;
+#endif
+			CuSAD+=pixel_func(pOrg_Y,stride,pPred_Y,stride,width,height);
+			CuSAD+=pixel_func(pOrg_U,cstride,pPred_U,cstride,width>>1,height>>1);
+			CuSAD+=pixel_func(pOrg_V,cstride,pPred_V,cstride,width>>1,height>>1);
+
+#endif
+			m_uiPicSAD+=CuSAD;
+		//	printf("%d [%d %d] \n",CuSAD,height,width);
+
+			if(m_pcParam->b_variable_qp)
+			{
+				x264_ratecontrol_mb( m_pcRateCtrl, m_pcParam, pcCU->getTotalBits(), CuSAD);
+			}
+
+#endif
     }
 #endif
   }
@@ -1272,7 +1555,11 @@ Void TEncSlice::compressSlice( TComPic*& rpcPic )
 #if !RATE_CONTROL_LAMBDA_DOMAIN
   if(m_pcCfg->getUseRateCtrl())
   {
+#ifndef X264_RATECONTROL_2006
     m_pcRateCtrl->updateFrameData(m_uiPicTotalBits);
+#else
+	m_pcRateCtrl->last_satd=m_uiPicSAD;
+#endif
   }
 #endif
 }

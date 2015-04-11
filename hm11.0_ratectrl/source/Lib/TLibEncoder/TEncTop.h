@@ -119,8 +119,14 @@ private:
   TEncPreanalyzer         m_cPreanalyzer;                 ///< image characteristics analyzer for TM5-step3-like adaptive QP
 
   TComScalingList         m_scalingList;                 ///< quantization matrix information
+#ifdef X264_RATECONTROL_2006
+  x264_ratecontrol_t	  m_x264RC;
+  /* Rate control parameters */
+  x264_param_t			  m_param;
+#else
   TEncRateCtrl            m_cRateCtrl;                    ///< Rate control class
-  
+#endif
+
 protected:
   Void  xGetNewPicBuffer  ( TComPic*& rpcPic );           ///< get picture buffer which will be processed
   Void  xInitSPS          ();                             ///< initialize SPS from encoder options
@@ -168,7 +174,12 @@ public:
   TComRdCost*             getRdCosts            () { return  m_pcRdCosts;             }
   TEncSbac****            getRDSbacCoders       () { return  m_ppppcRDSbacCoders;     }
   TEncSbac*               getRDGoOnSbacCoders   () { return  m_pcRDGoOnSbacCoders;   }
+#ifdef X264_RATECONTROL_2006
+  x264_ratecontrol_t*          getRateCtrl           () { return &m_x264RC;             }
+  x264_param_t*          getParam           () { return &m_param;             }
+#else
   TEncRateCtrl*           getRateCtrl           () { return &m_cRateCtrl;             }
+#endif
   TComSPS*                getSPS                () { return  &m_cSPS;                 }
   TComPPS*                getPPS                () { return  &m_cPPS;                 }
   Void selectReferencePictureSet(TComSlice* slice, Int POCCurr, Int GOPid );
