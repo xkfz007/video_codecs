@@ -401,8 +401,6 @@ private:
 #define RC_P_WINDOW 8
 #define GOPSIZE 3 //gopsize+1
 #define _USE_BITS_ADJUST_ 0
-#define _USE_BITS_ALLOC1_ 0
-#define _USE_BITS_ALLOC2_ 0
 #define _USE_IFRAME_RESTRICT_ 1
 #define _USE_PFRAME_FROM_IFRAME_ 1
 #define _USE_FIRST_I_REDUCTION_ 1
@@ -541,9 +539,9 @@ struct x264_ratecontrol_t
 
 	double last_qscale;
 //	double last_qscale2;
-	double last_qscale_for[4];  /* last qscale for a specific pict type, used for max_diff & ipb factor stuff  */
+	double last_qscale_for[8];  /* last qscale for a specific pict type, used for max_diff & ipb factor stuff  */
 	double last_qscale_I;
-	int last_non_b_pict_type;
+	int last_pict_type;
 	double accum_p_qp;          /* for determining I-frame quant */
 	double accum_p_norm;
 	double last_accum_p_norm;
