@@ -2333,23 +2333,7 @@ void x264_ratecontrol_start( x264_ratecontrol_t *rc, x264_param_t* pParam, int i
     if( rce )
         rce->new_qp = rc->qp;
 #endif
-#if  _PREDICTOR_TEST_
-	predictor_t* pdt;
-//	int var;
-	if(rc->slice_type==SLICE_TYPE_I) {
-		pdt=&rc->pred[2];
-//		var=rc->last_satd_for[2];
-	}
-	else {
-		pdt=&rc->pred[rc->i_frame%2];
-//		var=rc->last_satd_for[rc->i_frame%2];
-	}
-//	if(var==0)
-//		var=rc->last_satd;
-	double bits = predict_size(pdt, qp2qscale(rc->qp), rc->last_satd);
-	printf("bits2= %f coeff= %f count= %f ",bits, pdt->coeff,pdt->count);
 
-#endif
 }
 
 static void update_predictor( predictor_t *p, double q, double var, double bits )
@@ -2608,19 +2592,6 @@ void x264_ratecontrol_end( x264_ratecontrol_t *rc, x264_param_t* pParam,int bits
 		else
 			rc->framesad_Pavg/=RC_P_WINDOW;
 	}
-#endif
-
-#if  _PREDICTOR_TEST_
-	predictor_t* pdt;
-	if(rc->slice_type==SLICE_TYPE_I) {
-		pdt=&rc->pred[rc->slice_type];
-//		rc->last_satd_for[2]=cost;
-	}
-	else {
-		pdt=&rc->pred[rc->i_frame%2];
-//		rc->last_satd_for[rc->i_frame%2]=cost;
-	}
-		update_predictor( pdt,qp2qscale(rc->qp),cost, bits );
 #endif
 
 	rc->i_slice_count[rc->slice_type]++;
