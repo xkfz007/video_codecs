@@ -472,7 +472,6 @@ static const char * const x264_motion_est_names[] = { "dia", "hex", "umh", "esa"
 #define _NEW_SATD_EST_ 1
 #define RC_P_WINDOW 8
 #define GOPSIZE 3 //gopsize+1
-#define _OVERFLOW_ADJUST_ 1
 #define _USE_STD_PRED_ 1
 #define _USE_QPOFFSET_ 0
 #define _USE_LCU_ 0
@@ -487,7 +486,11 @@ static const char * const x264_motion_est_names[] = { "dia", "hex", "umh", "esa"
 #define _USE_PFRAME_FROM_IFRAME_ 1
 #define _USE_FIRST_I_REDUCTION_ 1
 #define _USE_DELAY_PFRAME_ 1
-#define _USE_I_FRAME_REDUCTION 1
+#define _USE_I_FRAME_REDUCTION 0
+#define _USE_IQP_NOT_TOO_LOW_ 1
+#define _USE_LEVEL_P_ 1
+#define _USE_BITRATE_DETECT_ 1
+#define _USE_I_REDUCE_QPSTEP_ 0
 
 
 #define X264_RC_CQP                  0 //Constant quantizer, the QPs are simply based on whether the frame is P,I or B frame.
@@ -719,13 +722,20 @@ struct x264_ratecontrol_t
 	double last_qscale;
 //	double last_qscale2;
 	double last_qscale_for[3];  /* last qscale for a specific pict type, used for max_diff & ipb factor stuff  */
+	double last_qscale_I;
 	int last_non_b_pict_type;
 	double accum_p_qp;          /* for determining I-frame quant */
 	double accum_p_norm;
 	double last_accum_p_norm;
 	double lmin[3];             /* min qscale by frame type */
 	double lmax[3];
+	double lmin_I;
+	double lmax_I;
 	double lstep;               /* max change (multiply) in qscale per frame */
+	double lstep_2times;     
+	double lstep_3times;     
+	double lstep_half;      
+	double brate;
 
 	/* MBRC stuff */
     float frame_size_estimated; /* Access to this variable must be atomic: double is

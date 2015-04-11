@@ -1811,6 +1811,9 @@ int x264_ratecontrol_new( x264_ratecontrol_t *rc, x264_param_t* pParam, int lcuw
 	rc->i_index_Pfrm=0;
 #endif
 
+	if(pParam->rc.f_ip_factor>1.0)
+		pParam->rc.f_pb_factor=1.3;
+
 	rc->ip_offset = 6.0 * log(pParam->rc.f_ip_factor) / log(2.0);
 	rc->pb_offset = 6.0 * log(pParam->rc.f_pb_factor) / log(2.0);
 	rc->qp_constant[SLICE_TYPE_P] = pParam->rc.i_qp_constant;
@@ -1819,9 +1822,16 @@ int x264_ratecontrol_new( x264_ratecontrol_t *rc, x264_param_t* pParam, int lcuw
 
 //	pParam->rc.i_qp_step=2;
 	rc->lstep = exp2f(pParam->rc.i_qp_step / 6.0);
+	rc->lstep_2times = exp2f(pParam->rc.i_qp_step*2 / 6.0);
+	rc->lstep_3times = exp2f(pParam->rc.i_qp_step*3 / 6.0);
+	rc->lstep_half = exp2f(pParam->rc.i_qp_step*0.5 / 6.0);
+	rc->brate=0;//MAX_DOUBLE;
 
 	//Enlarge the QP range
 	rc->last_qscale = qp2qscale(26);
+	rc->last_qscale_I=qp2qscale(26);
+	rc->lmin_I = qp2qscale( pParam->rc.i_qp_min );
+	rc->lmax_I = qp2qscale( pParam->rc.i_qp_max );
 	for(int i = 0; i < 3; i++ ) {
 		rc->last_qscale_for[i] = qp2qscale(26);
 		rc->lmin[i] = qp2qscale( pParam->rc.i_qp_min );
@@ -2005,6 +2015,15 @@ static float rate_estimate_qscale(x264_ratecontrol_t *rcc, x264_param_t* pParam,
 	//+ h->stat.i_slice_size[SLICE_TYPE_B]);
 //	int64_t total_bits = rcc->bitcost;
 	double abr_buffer = 2 * rcc->rate_tolerance * rcc->bitrate;
+#if 0//_USE_LEVEL_P_
+	if(pict_type!=SLICE_TYPE_I){
+		if(rcc->gop_id==0)
+			abr_buffer*=0.1;
+		else if(rcc->gop_id==1)
+			abr_buffer*=1.0;
+	}
+
+#endif
 	double overflow=1.0;
 
 	//rcc->last_satd = x264_rc_analyse_slice( h );
@@ -2057,39 +2076,60 @@ static float rate_estimate_qscale(x264_ratecontrol_t *rcc, x264_param_t* pParam,
 	{
 		q = qp2qscale( rcc->accum_p_qp / rcc->accum_p_norm );
 		q /= fabs( pParam->rc.f_ip_factor );
-#if _USE_IFRAME_RESTRICT_
-		q = x264_clip3f(q, rcc->last_qscale_for[pict_type]/rcc->lstep, 
-			rcc->last_qscale_for[pict_type]*rcc->lstep);
+#if 0//_USE_IQP_NOT_TOO_LOW_
+		if(q/(rcc->last_qscale_I*rcc->lstep)>pParam->rc.f_ip_factor)
+			q /= fabs( pParam->rc.f_ip_factor );
+		else
+#endif
+#if 0// _USE_IFRAME_RESTRICT_
+		q = x264_clip3f(q, rcc->last_qscale_I/rcc->lstep_2times, 
+			rcc->last_qscale_I*rcc->lstep);
 #endif
 	}
 	else
 		if(rcc->i_frame>0)
 		{
 			/* Asymmetric clipping, because symmetric would prevent overflow control in areas of rapidly oscillating complexity */
-#if !_USE_PFRAME_FROM_IFRAME_
-			double lmin = rcc->last_qscale_for[pict_type] / rcc->lstep;//rcc->lstep;
-			double lmax = rcc->last_qscale_for[pict_type] * rcc->lstep;
-#else
-			double lmin = rcc->last_qscale / rcc->lstep;
-			double lmax = rcc->last_qscale * rcc->lstep;
+			double lmin,lmax;
+			lmin = rcc->last_qscale_for[pict_type] / rcc->lstep_2times;//rcc->lstep;
+			lmax = rcc->last_qscale_for[pict_type] * rcc->lstep;
+#if _USE_PFRAME_FROM_IFRAME_
+			lmin = rcc->last_qscale / rcc->lstep_2times;
+			lmax = rcc->last_qscale * rcc->lstep;
 #endif
-#if _USE_DELAY_PFRAME_
-			if(rcc->last_non_b_pict_type==SLICE_TYPE_I||rcc->p_after_i<3) {
-			if( overflow > 1.2)//&&rcc->i_frame>rcc->fps-1 )
-				lmax *= rcc->lstep;
-			else if( overflow < 0.8 )
+
+#if 0
+			if(overflow>1.2)
+				lmax *= rcc->lstep_half;
+			if( overflow < 0.8 )
 				lmin /= rcc->lstep;
-			}
-			else
 #endif
+#if _USE_LEVEL_P_
+			lmin=rcc->last_qscale_for[rcc->gop_id]/rcc->lstep_2times;
+			lmax=rcc->last_qscale_for[rcc->gop_id]*rcc->lstep;
+			if(rcc->gop_id==0) 
 			{
-#if _OVERFLOW_ADJUST_
-			if( overflow > 1.1)//&&rcc->p_after_i>3)//rcc->i_frame>3 )
-				lmax *= rcc->lstep;
+			if(overflow>1.2)
+				lmax*=rcc->lstep;
 			else if( overflow < 0.9 )
 				lmin /= rcc->lstep;
-#endif
 			}
+			if(rcc->gop_id==1)//&&rcc->p_after_i>5)
+			{
+			if(overflow>1.2)
+				lmax*=rcc->lstep_half;
+			else if( overflow < 0.9 )
+				lmin /= rcc->lstep;
+			}
+#else
+			if(rcc->last_non_b_pict_type!=SLICE_TYPE_I&&rcc->p_after_i>3)
+			{
+			if( overflow > 1.1)//&&rcc->p_after_i>3)//rcc->i_frame>3 )
+				lmax *= rcc->lstep;
+			if( overflow < 0.9 )
+				lmin /= rcc->lstep;
+			}
+#endif
 			q = x264_clip3f(q, lmin, lmax);
 			if(abs(q-lmin)<0.000001||abs(q-lmax)<0.000001)
 				clip_ops++;
@@ -2103,18 +2143,82 @@ static float rate_estimate_qscale(x264_ratecontrol_t *rcc, x264_param_t* pParam,
 		q*=pow(2,rcc->qp_offset/6.0);
 #endif
 		rcc->qp_novbv = qscale2qp( q );
-		q = clip_qscale(rcc, pParam, pict_type, q);
-		rcc->last_qscale_for[pict_type] = rcc->last_qscale = q;
+
+		if(pParam->b_variable_qp)
+			q = clip_qscale(rcc, pParam, pict_type, q);
+#if _USE_LEVEL_P_
+		if(pict_type!=SLICE_TYPE_I)
+		{
+		double q2 = qp2qscale( rcc->accum_p_qp / rcc->accum_p_norm );
+		if(rcc->gop_id==0&&q>q2*rcc->lstep_3times)
+			q=q2*rcc->lstep_3times;
+		else if(rcc->gop_id==1&&q>q2*rcc->lstep_2times)
+			q=q2*rcc->lstep_2times;
+
+		}
+		
+#endif
+#if _USE_BITRATE_DETECT_
+		printf("q1= %.2f ",q);
+		if(rcc->brate<rcc->bitrate/1000){
+			if(rcc->gop_id==0)
+				q/=rcc->lstep_half;
+			else if(rcc->gop_id==1) {
+				q/=rcc->lstep;
+				q/=rcc->lstep_half;
+			}
+#if _USE_I_REDUCE_QPSTEP_
+			else{
+				q/=rcc->lstep;
+			}
+#endif
+		}
+		printf("q2= %.2f ",q);
+		if(rcc->brate<rcc->brate/1000*0.9){
+			if(rcc->gop_id==0)
+				q/=rcc->lstep_half;
+			else if(rcc->gop_id==1)
+				q/=rcc->lstep;
+#if _USE_I_REDUCE_QPSTEP_
+			else{
+				q/=rcc->lstep;
+				q/=rcc->lstep_half;
+			}
+#endif
+		}
+		printf("q2= %.2f ",q);
+#endif
+
+		rcc->last_qscale = q;
 		rcc->last_qscale_lcu=q;
+		if(pict_type==SLICE_TYPE_I)
+			rcc->last_qscale_I=q;
+		else
+#if !_USE_LEVEL_P_
+			rcc->last_qscale_for[pict_type] = q;
+#else
+			rcc->last_qscale_for[rcc->gop_id] = q;
+#endif
+
 #if 0
 		printf("clip= %d ",clip_ops);
 		printf("qp= %4.2f ",rcc->qp_novbv);
 #endif
 		//Make sure the QP of P-Slice is higher than that of the previous I-Slice
-//		if(rcc->i_frame==0)
-	//	if(pict_type==SLICE_TYPE_I)
 		if(pict_type==SLICE_TYPE_I&&rcc->last_qscale_for[SLICE_TYPE_P]<q)
 			rcc->last_qscale_for[SLICE_TYPE_P] = q*pParam->rc.f_ip_factor;
+#if _USE_LEVEL_P_
+		if(pict_type==SLICE_TYPE_I) {
+//			for(int i=0;i<3;i++)
+//				if(rcc->last_qscale_for[i]<q)
+//					rcc->last_qscale_for[i] = q*pParam->rc.f_ip_factor;
+			if(rcc->last_qscale_for[0]<q)
+				rcc->last_qscale_for[0]=q*pParam->rc.f_ip_factor;
+			if(rcc->last_qscale_for[1]<q)
+				rcc->last_qscale_for[1]=q*pParam->rc.f_pb_factor;
+		}
+
+#endif
 
 		if(pParam->b_variable_qp){
 			rcc->frame_size_planned = predict_size( rcc->pred, q, rcc->last_satd );
@@ -2204,10 +2308,15 @@ void x264_ratecontrol_start( x264_ratecontrol_t *rc, x264_param_t* pParam, int i
 	rc->qpa = 0;
 	rc->skip_lcu_num=0;
 	rc->start_flag=0;
+#if _USE_I_REDUCE_QPSTEP_
+	if(i_slice_type==SLICE_TYPE_I)
+		rc->gop_id=-1;
+#endif
+	printf("gopid= %d ",rc->gop_id);
 	if(i_slice_type==SLICE_TYPE_I)
 		rc->p_after_i=0;
-	else
-		rc->p_after_i++;
+	else if(rc->gop_id==1)
+			rc->p_after_i++;
 	
 #if _NEW_SATD_EST_
 //	printf("bits= %d ",rc->bitcost);
@@ -2249,7 +2358,7 @@ void x264_ratecontrol_start( x264_ratecontrol_t *rc, x264_param_t* pParam, int i
 			rc->last_satd=wgt*rc->sad_Ilast+(1-wgt)*rc->framesad_Pavg;
 	}
 
-//	printf("cost2= %d ",rc->last_satd);
+	printf("cost2= %d ",rc->last_satd);
 //	printf("pavg= %f ",rc->framesad_Pavg);
 //	printf("cplxr_sum= %f ",rc->cplxr_sum);
 #endif
@@ -2604,17 +2713,32 @@ void x264_ratecontrol_end( x264_ratecontrol_t *rc, x264_param_t* pParam,int bits
 		}
 		fflush(stdout);
 #else
-#if _USE_IFRAME_RESTRICT_
+#if 0//_USE_IFRAME_RESTRICT_
 		if(rc->slice_type==SLICE_TYPE_I)
-			rc->cplxr_sum += bits*rc->cbr_decay * qp2qscale(rc->qpa) / rc->last_rceq;
+			rc->cplxr_sum += bits*0.5 * qp2qscale(rc->qpa) / rc->last_rceq;
 		else
 #endif
 			rc->cplxr_sum += bits * qp2qscale(rc->qpa) / rc->last_rceq;
+#if 0//_USE_LEVEL_P_
+		if(rc->slice_type==SLICE_TYPE_I) {
+		rc->wanted_bits+=rc->bitrate/rc->fps;
+		rc->wanted_bits_window += rc->bitrate / rc->fps;
+		}
+		else if(rc->gop_id==0){
+		rc->wanted_bits+=0.25*2*rc->bitrate/rc->fps;
+		rc->wanted_bits_window += 0.25*2*rc->bitrate / rc->fps;
+		}
+		else if(rc->gop_id==1){
+		rc->wanted_bits+=0.75*2*rc->bitrate/rc->fps;
+		rc->wanted_bits_window += 0.75*2*rc->bitrate / rc->fps;
+		}
+#else
 		rc->wanted_bits+=rc->bitrate/rc->fps;
 		rc->wanted_bits_window += rc->bitrate / rc->fps;
 #endif
+#endif
 
-#if _USE_IFRAME_RESTRICT_
+#if 0//_USE_IFRAME_RESTRICT_
 		rc->accum_p_qp   *= rc->cbr_decay;//.95;
 		rc->accum_p_norm *= rc->cbr_decay;//.95;
 #else
@@ -2672,8 +2796,8 @@ void x264_ratecontrol_end( x264_ratecontrol_t *rc, x264_param_t* pParam,int bits
 	rc->i_slice_count[rc->slice_type]++;
 	rc->i_frame++;
 #if 1
-	double brate=rc->bitcost/1000.0/(rc->i_frame/rc->fps);
-	printf("brate= %7.2f ",brate);
+	rc->brate=rc->bitcost/1000.0/(rc->i_frame/rc->fps);
+	printf("brate= %7.2f ",rc->brate);
 #endif
 }
 
