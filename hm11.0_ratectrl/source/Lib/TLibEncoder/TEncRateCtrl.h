@@ -479,6 +479,9 @@ static const char * const x264_motion_est_names[] = { "dia", "hex", "umh", "esa"
 #define _USE_LCU_ 0
 #define _USE_BITS_ADJUST_ 1
 #define _USE_DIFF_CONDITION_ 0
+#define _USE_MY_CONDITION 1
+#define _NO_PRED_INIT_ 1
+#define _USE_CLIPSCALE_ 0
 
 
 #define X264_RC_CQP                  0 //Constant quantizer, the QPs are simply based on whether the frame is P,I or B frame.
@@ -631,7 +634,7 @@ typedef struct
 	double coeff;
 	double count;
 	double decay;
-	double offset;
+	int offset;
 } predictor_t;
 
 struct x264_ratecontrol_t
@@ -678,7 +681,6 @@ struct x264_ratecontrol_t
 	double last_rceq;
 	double cplxr_sum;           /* sum of bits*qscale/rceq */
 	double expected_bits_sum;   /* sum of qscale2bits after rceq, ratefactor, and overflow */
-    int64_t filler_bits_sum;    /* sum in bits of finished frames' filler data */
 	double wanted_bits_window;  /* target bitrate * window */
 //	double wanted_bits_window2;
 //	double cplxr_sum2;
@@ -713,6 +715,7 @@ struct x264_ratecontrol_t
 	predictor_t row_preds[GOPSIZE];/*max gop size is 64*///[3];//[2];
 	int bframes;                /* # consecutive B-frames before this P-frame */
 	int bframe_bits;            /* total cost of those frames */
+	int single_frame_vbv;
 
 //add
 	int64_t bitcost;
