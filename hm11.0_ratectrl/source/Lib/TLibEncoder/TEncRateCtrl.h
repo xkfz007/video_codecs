@@ -471,6 +471,7 @@ static const char * const x264_motion_est_names[] = { "dia", "hex", "umh", "esa"
 
 #define _NEW_SATD_EST_ 1
 #define RC_P_WINDOW 8
+#define GOPSIZE 4
 #define _OVERFLOW_ADJUST_ 0
 #define _USE_STD_PRED_ 1
 #define _USE_QPOFFSET_ 1
@@ -584,6 +585,7 @@ typedef struct
 		float       f_qblur;        /* temporally blur quants */
 		float       f_complexity_blur; /* temporally blur complexity */
 	} rc;
+	int gopsize;
 
 	int b_aud;                  /* generate access unit delimiters */
 	int b_repeat_headers;       /* put SPS/PPS before each keyframe */
@@ -664,7 +666,8 @@ struct x264_ratecontrol_t
     double buffer_rate;         /* # of bits added to buffer_fill after each frame */
     double vbv_max_rate;        /* # of bits added to buffer_fill per second */
 
-	predictor_t pred[3];        /* predict frame size from satd */
+	predictor_t *pred;        /* predict frame size from satd */
+	predictor_t preds[GOPSIZE];//max gop size is 64
 	int last_satd_for[3];
 	int bits_for[3];
 	int ftype;
@@ -710,8 +713,8 @@ struct x264_ratecontrol_t
     double slice_size_planned;
 	int first_row, last_row;    /* region of the frame to be encoded by this thread */
 	predictor_t *row_pred;//[2];
-	predictor_t row_preds[3];//[2];
-	predictor_t pred_b_from_p;  /* predict B-frame size from P-frame satd */
+	predictor_t row_preds[GOPSIZE];/*max gop size is 64*///[3];//[2];
+//	predictor_t pred_b_from_p;  /* predict B-frame size from P-frame satd */
 	int bframes;                /* # consecutive B-frames before this P-frame */
 	int bframe_bits;            /* total cost of those frames */
 
