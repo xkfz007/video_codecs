@@ -1371,11 +1371,15 @@ Void TEncSlice::encodeSlice   ( TComPic*& rpcPic, TComOutputBitstream* pcSubstre
 #endif
     if ( (m_pcCfg->getSliceMode()!=0 || m_pcCfg->getSliceSegmentMode()!=0) &&
       uiCUAddr == rpcPic->getPicSym()->getCUOrderMap((uiBoundingCUAddr+rpcPic->getNumPartInCU()-1)/rpcPic->getNumPartInCU()-1) )
-    {
+	{
+		//if(!pcCU->getSlice()->isIntra())
+			//m_pcCuEncoder->encodeCU2(pcCU);
       m_pcCuEncoder->encodeCU( pcCU );
     }
     else
     {
+		//if(!pcCU->getSlice()->isIntra())
+		//	m_pcCuEncoder->encodeCU2(pcCU);
       m_pcCuEncoder->encodeCU( pcCU );
     }
 #if ENC_DEC_TRACE

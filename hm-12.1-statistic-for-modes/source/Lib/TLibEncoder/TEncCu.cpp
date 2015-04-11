@@ -254,6 +254,16 @@ Void TEncCu::encodeCU ( TComDataCU* pcCU )
   // Encode CU data
   xEncodeCU( pcCU, 0, 0 );
 }
+Void TEncCu::encodeCU2 ( TComDataCU* pcCU )
+{
+  if ( pcCU->getSlice()->getPPS()->getUseDQP() )
+  {
+    setdQPFlag(true);
+  }
+
+  // Encode CU data
+  xEncodeCU2( pcCU, 0, 0 );
+}
 
 // ====================================================================================================================
 // Protected member functions
@@ -1075,6 +1085,46 @@ Void TEncCu::xEncodeCU( TComDataCU* pcCU, UInt uiAbsPartIdx, UInt uiDepth )
   finishCU(pcCU,uiAbsPartIdx,uiDepth);
 }
 
+Void TEncCu::xEncodeCU2( TComDataCU* pcCU, UInt uiAbsPartIdx, UInt uiDepth )
+{
+
+  TComPic* pcPic = pcCU->getPic();
+  Bool bBoundary = false;
+  UInt uiLPelX   = pcCU->getCUPelX() + g_auiRasterToPelX[ g_auiZscanToRaster[uiAbsPartIdx] ];
+  UInt uiRPelX   = uiLPelX + (g_uiMaxCUWidth>>uiDepth)  - 1;
+  UInt uiTPelY   = pcCU->getCUPelY() + g_auiRasterToPelY[ g_auiZscanToRaster[uiAbsPartIdx] ];
+  UInt uiBPelY   = uiTPelY + (g_uiMaxCUHeight>>uiDepth) - 1;
+
+  TComSlice * pcSlice = pcCU->getPic()->getSlice(pcCU->getPic()->getCurrSliceIdx());
+
+  if( ( ( uiDepth < pcCU->getDepth( uiAbsPartIdx ) ) && ( uiDepth < (g_uiMaxCUDepth-g_uiAddCUDepth) ) ) || bBoundary )
+  {
+
+    UInt uiQNumParts = ( pcPic->getNumPartInCU() >> (uiDepth<<1) )>>2;
+
+    for ( UInt uiPartUnitIdx = 0; uiPartUnitIdx < 4; uiPartUnitIdx++, uiAbsPartIdx+=uiQNumParts )
+    {
+      uiLPelX   = pcCU->getCUPelX() + g_auiRasterToPelX[ g_auiZscanToRaster[uiAbsPartIdx] ];
+      uiTPelY   = pcCU->getCUPelY() + g_auiRasterToPelY[ g_auiZscanToRaster[uiAbsPartIdx] ];
+      Bool bInSlice = pcCU->getSCUAddr()+uiAbsPartIdx+uiQNumParts>pcSlice->getSliceSegmentCurStartCUAddr()&&pcCU->getSCUAddr()+uiAbsPartIdx<pcSlice->getSliceSegmentCurEndCUAddr();
+      if(bInSlice&&( uiLPelX < pcSlice->getSPS()->getPicWidthInLumaSamples() ) && ( uiTPelY < pcSlice->getSPS()->getPicHeightInLumaSamples() ) )
+      {
+        xEncodeCU2( pcCU, uiAbsPartIdx, uiDepth+1 );
+      }
+    }
+    return;
+  }
+ Int iPredMode = pcCU->getPredictionMode( uiAbsPartIdx );
+PartSize eSize         = pcCU->getPartitionSize( uiAbsPartIdx );
+// if( iPredMode== MODE_INTRA){
+ //}
+printf("%3d PM= %d PS= %d %dx%d\n",uiAbsPartIdx,iPredMode,eSize,pcCU->getWidth(uiAbsPartIdx),pcCU->getHeight(uiAbsPartIdx));
+fflush(stdout);
+// printf("PredMode: %d\n",iPredMode);
+// printf("PartSize: %d\n",eSize);
+
+
+}
 Int xCalcHADs8x8_ISlice(Pel *piOrg, Int iStrideOrg) 
 {
   Int k, i, j, jj;

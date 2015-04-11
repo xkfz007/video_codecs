@@ -113,6 +113,7 @@ public:
   
   /// CU encoding function
   Void  encodeCU            ( TComDataCU*    pcCU );
+  Void  encodeCU2            ( TComDataCU*    pcCU );
   
   Void setBitCounter        ( TComBitCounter* pcBitCounter ) { m_pcBitCounter = pcBitCounter; }
   Int   updateLCUDataISlice ( TComDataCU* pcCU, Int LCUIdx, Int width, Int height );
@@ -124,6 +125,7 @@ protected:
   Void  xCompressCU         ( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, UInt uiDepth        );
 #endif
   Void  xEncodeCU           ( TComDataCU*  pcCU, UInt uiAbsPartIdx,           UInt uiDepth        );
+  Void  xEncodeCU2           ( TComDataCU*  pcCU, UInt uiAbsPartIdx,           UInt uiDepth        );
   
   Int   xComputeQP          ( TComDataCU* pcCU, UInt uiDepth );
   Void  xCheckBestMode      ( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, UInt uiDepth        );
