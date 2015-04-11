@@ -1686,7 +1686,6 @@ int x264_ratecontrol_new( x264_ratecontrol_t *rc, x264_param_t* pParam, int lcuw
 	rc->i_frame = 0;
 	rc->first_row = 0;
 	clip_ops=0;
-//	rc->p_after_i=0;
 #if _USE_LCU_
 	rc->last_row = picWidthInBU*picHeightInBU-1;
 #else
@@ -2067,24 +2066,27 @@ static float rate_estimate_qscale(x264_ratecontrol_t *rcc, x264_param_t* pParam,
 		if(rcc->i_frame>0)
 		{
 			/* Asymmetric clipping, because symmetric would prevent overflow control in areas of rapidly oscillating complexity */
-#if !_USE_PFRAME_FROM_IFRAME
+#if !_USE_PFRAME_FROM_IFRAME_
 			double lmin = rcc->last_qscale_for[pict_type] / rcc->lstep;//rcc->lstep;
 			double lmax = rcc->last_qscale_for[pict_type] * rcc->lstep;
 #else
 			double lmin = rcc->last_qscale / rcc->lstep;
 			double lmax = rcc->last_qscale * rcc->lstep;
 #endif
-		//	if(rcc->last_non_b_pict_type!=SLICE_TYPE_I&&rcc->p_after_i>3)
+#if _USE_DELAY_PFRAME_
+			if(rcc->last_non_b_pict_type==SLICE_TYPE_I||rcc->p_after_i<3) {
+			if( overflow > 1.2)//&&rcc->i_frame>rcc->fps-1 )
+				lmax *= rcc->lstep;
+			else if( overflow < 0.8 )
+				lmin /= rcc->lstep;
+			}
+			else
+#endif
 			{
 #if _OVERFLOW_ADJUST_
 			if( overflow > 1.1)//&&rcc->p_after_i>3)//rcc->i_frame>3 )
 				lmax *= rcc->lstep;
 			else if( overflow < 0.9 )
-				lmin /= rcc->lstep;
-#else
-			if( overflow > 1.3)//&&rcc->i_frame>rcc->fps-1 )
-				lmax *= rcc->lstep;
-			else if( overflow < 0.8 )
 				lmin /= rcc->lstep;
 #endif
 			}
@@ -2092,6 +2094,11 @@ static float rate_estimate_qscale(x264_ratecontrol_t *rcc, x264_param_t* pParam,
 			if(abs(q-lmin)<0.000001||abs(q-lmax)<0.000001)
 				clip_ops++;
 		}
+#if _USE_FIRST_I_REDUCTION_
+		else{
+			q /= fabs( pParam->rc.f_ip_factor );
+		}
+#endif
 #if _USE_QPOFFSET_
 		q*=pow(2,rcc->qp_offset/6.0);
 #endif
@@ -2271,9 +2278,9 @@ void x264_ratecontrol_start( x264_ratecontrol_t *rc, x264_param_t* pParam, int i
 	if( rc->b_abr )
 	{
 		rc->qpm=x264_clip3f(qscale2qp( rate_estimate_qscale( rc, pParam, i_slice_type )),0,51);
-#if 0
+#if _USE_I_FRAME_REDUCTION
 		if(i_slice_type==SLICE_TYPE_I)
-			rc->qpm-=5;
+			rc->qpm-=3;
 #endif
 		rc->qp=(int)(rc->qpm+0.5);
 	}
@@ -2502,6 +2509,8 @@ void x264_ratecontrol_lcu(x264_ratecontrol_t *rc, x264_param_t* pParam, int bits
 	}	
 
 	double ratefactor=rc->wanted_bits_window_lcu/rc->cplxr_sum_lcu;
+	rc->cplxr_sum_lcu*=rc->cbr_decay;
+	rc->wanted_bits_window_lcu*=rc->cbr_decay;
 	rc->wanted_bits_window_lcu+=rc->bitrate/rc->fps/(pParam->m_numberOfLCU-rc->skip_lcu_num);
 	rc->cplxr_sum_lcu+=bits*qp2qscale(rc->qpm)/rc->last_rceq_lcu;
 	rc->last_rceq_lcu=qscale;
@@ -2510,8 +2519,10 @@ void x264_ratecontrol_lcu(x264_ratecontrol_t *rc, x264_param_t* pParam, int bits
 
 	double abr_buffer_lcu = 2 * rc->rate_tolerance * rc->bitrate/(pParam->m_numberOfLCU-rc->skip_lcu_num);
 	abr_buffer_lcu*=X264_MAX( 1, sqrt((double)rc->i_mb_y));
+
 	rc->wanted_bits_lcu+=rc->bitrate/rc->fps/(pParam->m_numberOfLCU-rc->skip_lcu_num);
-	rc->bitcost_lcu+=bits;
+	rc->bitcost_lcu+=bits*qp2qscale(rc->qpm)/rc->last_qscale_lcu;
+
 	double overflow = x264_clip3f( 1.0 + (rc->bitcost_lcu- rc->wanted_bits_lcu) / abr_buffer_lcu, .5, 2 );
 	qscale*=overflow;
 #if 0
@@ -2528,7 +2539,7 @@ void x264_ratecontrol_lcu(x264_ratecontrol_t *rc, x264_param_t* pParam, int bits
 #endif
 
 	double qp=qscale2qp(qscale);
-	qp=x264_clip3f(qp,rc->qp-1.0*pParam->rc.i_qp_step/2.0,rc->qp+1.0*pParam->rc.i_qp_step/2.0);
+	qp=x264_clip3f(qp,rc->qp-1.0*pParam->rc.i_qp_step,rc->qp+1.0*pParam->rc.i_qp_step);
 	rc->qpm=rc->last_qscale_lcu=qp;
 
 #if COLOR

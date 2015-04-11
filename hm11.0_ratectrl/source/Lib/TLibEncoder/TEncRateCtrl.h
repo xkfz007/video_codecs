@@ -478,13 +478,16 @@ static const char * const x264_motion_est_names[] = { "dia", "hex", "umh", "esa"
 #define _USE_LCU_ 0
 #define _USE_BITS_ADJUST_ 1
 #define _USE_DIFF_CONDITION_ 0
-#define _USE_MY_CONDITION 1
+#define _USE_MY_CONDITION 0
 #define _NO_PRED_INIT_ 1
 #define _USE_CLIPSCALE_ 0
 #define _USE_BITS_ALLOC1_ 0
 #define _USE_BITS_ALLOC2_ 0
 #define _USE_IFRAME_RESTRICT_ 1
-#define _USE_PFRAME_FROM_IFRAME 1
+#define _USE_PFRAME_FROM_IFRAME_ 1
+#define _USE_FIRST_I_REDUCTION_ 1
+#define _USE_DELAY_PFRAME_ 1
+#define _USE_I_FRAME_REDUCTION 1
 
 
 #define X264_RC_CQP                  0 //Constant quantizer, the QPs are simply based on whether the frame is P,I or B frame.
