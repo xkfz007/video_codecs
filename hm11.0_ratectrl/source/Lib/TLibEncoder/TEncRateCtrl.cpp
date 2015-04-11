@@ -1746,31 +1746,20 @@ int x264_ratecontrol_new( x264_ratecontrol_t *rc, x264_param_t* pParam, int lcuw
 	}
 
 	if( pParam->rc.i_vbv_max_bitrate > 0 && pParam->rc.i_vbv_buffer_size > 0 ) {
-		/*
-        if( rc->b_vbv_min_rate )
-            pParam->rc.i_vbv_max_bitrate = pParam->rc.i_bitrate;
-			*/
+
 		if( pParam->rc.i_vbv_buffer_size < 3 * pParam->rc.i_vbv_max_bitrate / rc->fps ) {
 			pParam->rc.i_vbv_buffer_size = 3 * pParam->rc.i_vbv_max_bitrate / rc->fps;
 			fprintf( stdout, "VBV buffer size too small, using %d kbit\n",
 				pParam->rc.i_vbv_buffer_size );
 		}
-		/*
-		if( rc->b_vbv_min_rate )
-            rc->bitrate = pParam->rc.i_bitrate * 1000.;
-			*/
+
 		rc->buffer_rate = pParam->rc.i_vbv_max_bitrate * 1000 / rc->fps;
-   //     rc->vbv_max_rate = pParam->rc.i_vbv_max_bitrate*1000;
 		rc->buffer_size = pParam->rc.i_vbv_buffer_size * 1000;
-//		rc->single_frame_vbv = rc->buffer_rate * 1.1 > rc->buffer_size;
 		rc->buffer_fill = rc->buffer_size * pParam->rc.f_vbv_buffer_init;
 		rc->cbr_decay = 1.0 - rc->buffer_rate / rc->buffer_size
 			* 0.5 * X264_MAX(0, 1.5 - rc->buffer_rate * rc->fps / rc->bitrate);
 
-//		rc->buffer_fill_final = rc->buffer_size * pParam->rc.f_vbv_buffer_init * 2*rc->fps;//h->sps->vui.i_time_scale;
 		rc->b_vbv = 1;
-//		rc->b_vbv_min_rate = pParam->rc.i_rc_method == X264_RC_ABR
- //                         && pParam->rc.i_vbv_max_bitrate <= pParam->rc.i_bitrate;
 	}
 
 	if(rc->rate_tolerance < 0.01) {
@@ -1903,7 +1892,6 @@ static double get_qscale(x264_ratecontrol_t *rcc,float blurred_complexity , x264
 		q = rcc->last_qscale_for[rcc->slice_type];
 	else {
 		rcc->last_rceq = q;
-		rcc->last_rceq2 = q;
 		q /= rate_factor;
 		rcc->last_qscale = q;
 	}
@@ -2096,11 +2084,12 @@ double predict_row_size( x264_ratecontrol_t *rc, int y, double qp)
 	/* average between two predictors:
 	* absolute SATD, and scaled bit cost of the colocated row in the previous frame */
 	double pred_s = predict_size( rc->row_pred, qp2qscale(qp), rc->i_row_satd[y]);
+	double pred_val=pred_s;
+	double pred_t = 0;
 	if( rc->slice_type != SLICE_TYPE_I 
 		&& rc->i_type_last == rc->slice_type
 		&& rc->i_row_satd_last[y] > 0 )
 	{
-		double pred_t = 0;
 #if !_USE_BITS_ADJUST_
 		pred_t = rc->i_row_bits_last[y] * rc->i_row_satd[y] / rc->i_row_satd_last[y]
 		* qp2qscale(rc->i_row_qp_last[y]) / qp2qscale(qp);
@@ -2112,20 +2101,26 @@ double predict_row_size( x264_ratecontrol_t *rc, int y, double qp)
 			pred_t = rc->i_row_bits_last[rc->i_frame-1][y] * rc->i_row_satd[y] / rc->i_row_satd_last[y]
 		* qp2qscale(rc->i_row_qp_last[rc->i_frame-1][y]) / qp2qscale(qp);
 #endif
-		return (pred_s+pred_t)/2;
+		pred_val=(pred_s+pred_t)/2;
 	}
-	return pred_s ;
+//	printf("%d:[%f,%f]\n",y,pred_s,pred_t,pred_val);
+//	fflush(stdout);
+	return pred_val ;
 }
 static int row_bits_so_far( x264_ratecontrol_t *rc, int y )
 {
     int bits = 0;
-    for( int i = rc->first_row; i <= y; i++ )
+	for( int i = rc->first_row; i <= y; i++ ){
         bits += rc->i_row_bits[i];
+//		printf("%d: %d\n",i,rc->i_row_bits[i]);
+//		fflush(stdout);
+	}
     return bits;
 }
 double predict_row_size_sum( x264_ratecontrol_t *rc, int y, float qp)
 {
-  //  float qscale = qp2qscale( qp );
+//	printf("%s:\n",__FUNCTION__);
+//	fflush(stdout);
 	double bits = row_bits_so_far(rc,y);
 	for(int i = y+1; i <= rc->last_row; i++ )
 		bits += predict_row_size( rc, i, qp);
@@ -2269,7 +2264,7 @@ void x264_ratecontrol_mb( x264_ratecontrol_t *rc, x264_param_t* pParam, int bits
 	rc->i_row_satd[y]=rc->i_row_satd_tmp;
 	rc->i_row_satd_tmp=0;
 
-//	printf("{%d} [%d,%d,%d,%f,%f] \n",rc->ftype,rc->i_row_bits[y],rc->i_row_satd[y],(int)(rc->qpm+0.5),
+//	printf("{%d} [%d,%d,%d,%f,%f] \n",y,rc->i_row_bits[y],rc->i_row_satd[y],(int)(rc->qpm+0.5),
 //		rc->row_pred->coeff,rc->row_pred->count);
 
         update_predictor( rc->row_pred, qp2qscale(rc->qpm), rc->i_row_satd[y], rc->i_row_bits[y] );
@@ -2283,22 +2278,68 @@ void x264_ratecontrol_mb( x264_ratecontrol_t *rc, x264_param_t* pParam, int bits
             float buffer_left_planned = rc->buffer_fill - rc->frame_size_planned;
 
 			float step_size = 0.5;//0.5f;
+
+#if !_USE_DIFF_CONDITION_
             while( rc->qpm < i_qp_max
                    && ((b1 > rc->frame_size_planned *1.15)// 1.15)//&& rc->qpm <rc->qp_novbv)
-                    || (rc->buffer_fill - b1 < buffer_left_planned * 0.5)))
+                    || (rc->buffer_fill - b1 < buffer_left_planned*0.5)))// * 0.5)))
             {
                 rc->qpm +=step_size;
                 b1 = predict_row_size_sum( rc, y, rc->qpm );
+				printf("%d:+ ",y);
+				fflush(stdout);
             }
 
             while( rc->qpm > i_qp_min
+			//	&&rc->qpm>rc->i_row_qp[0]-3*pParam->rc.i_qp_step
                    && buffer_left_planned > rc->buffer_size * 0.4//0.4
                    && ((b1 < rc->frame_size_planned *0.8)// 0.8 && rc->qpm <= prev_row_qp)
                      || b1 < (rc->buffer_fill - rc->buffer_size + rc->buffer_rate) * 1.1))//1.1))
             {
                 rc->qpm -=step_size;
                 b1 = predict_row_size_sum( rc, y, rc->qpm );
+				printf("%d:- ",y);
+				fflush(stdout);
             }
+#else
+
+			float qp_absolute_max = pParam->rc.i_qp_max;
+			float max_frame_error = X264_MAX( 0.05f, 1.0f / pParam->picHeightInBU);
+			float rc_tol = buffer_left_planned * rc->rate_tolerance;
+			if( rc->slice_type!= SLICE_TYPE_I )
+				rc_tol *= 0.1f;
+            while( rc->qpm < i_qp_max
+                   && ((b1 > rc->frame_size_planned*0.05 + rc_tol) ||
+                   (rc->buffer_fill - b1 < buffer_left_planned * 0.5)||
+				   (b1 > rc->frame_size_planned*0.8 && rc->qpm <rc->qp_novbv)))
+            {
+                rc->qpm +=step_size;
+                b1 = predict_row_size_sum( rc, y, rc->qpm );
+				printf("%d:+ ",y);
+				fflush(stdout);
+            }
+
+            while( rc->qpm > i_qp_min
+				&&rc->qpm>rc->i_row_qp[0]-2*pParam->rc.i_qp_step
+                   && ((b1 < rc->frame_size_planned *0.8 && rc->qpm <=prev_row_qp)
+                     || b1 < (rc->buffer_fill - rc->buffer_size + rc->buffer_rate) * 1.1))//1.1))
+            {
+                rc->qpm -=step_size;
+                b1 = predict_row_size_sum( rc, y, rc->qpm );
+				printf("%d:- ",y);
+				fflush(stdout);
+            }
+			/* avoid VBV underflow or MinCR violation */
+			while( (rc->qpm < qp_absolute_max)
+				&& ((rc->buffer_fill - b1 < rc->buffer_rate * max_frame_error)))
+			{
+				rc->qpm += step_size;
+				b1 = predict_row_size_sum( rc, y, rc->qpm );
+				printf("Good\n");
+				fflush(stdout);
+			}
+
+#endif
         }
 	rc->i_mb_x = 0;
 	rc->i_mb_y++;

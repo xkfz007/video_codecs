@@ -478,6 +478,7 @@ static const char * const x264_motion_est_names[] = { "dia", "hex", "umh", "esa"
 #define _USE_SMALL_BIG_P_ 0
 #define _USE_LCU_ 0
 #define _USE_BITS_ADJUST_ 1
+#define _USE_DIFF_CONDITION_ 0
 
 
 #define X264_RC_CQP                  0 //Constant quantizer, the QPs are simply based on whether the frame is P,I or B frame.
@@ -662,7 +663,6 @@ struct x264_ratecontrol_t
 
 	/* VBV stuff */
     double buffer_size;
-    int64_t buffer_fill_final;
     double buffer_fill;         /* planned buffer, if all in-progress frames hit their bit budget */
     double buffer_rate;         /* # of bits added to buffer_fill after each frame */
     double vbv_max_rate;        /* # of bits added to buffer_fill per second */
@@ -673,13 +673,9 @@ struct x264_ratecontrol_t
 	int bits_for[3];
 	int ftype;
 
-    int single_frame_vbv;
-    double rate_factor_max_increment; /* Don't allow RF above (CRF + this value). */
-
 	/* ABR stuff */
 	int    last_satd;
 	double last_rceq;
-	double last_rceq2;
 	double cplxr_sum;           /* sum of bits*qscale/rceq */
 	double expected_bits_sum;   /* sum of qscale2bits after rceq, ratefactor, and overflow */
     int64_t filler_bits_sum;    /* sum in bits of finished frames' filler data */
@@ -715,7 +711,6 @@ struct x264_ratecontrol_t
 	int first_row, last_row;    /* region of the frame to be encoded by this thread */
 	predictor_t *row_pred;//[2];
 	predictor_t row_preds[GOPSIZE];/*max gop size is 64*///[3];//[2];
-//	predictor_t pred_b_from_p;  /* predict B-frame size from P-frame satd */
 	int bframes;                /* # consecutive B-frames before this P-frame */
 	int bframe_bits;            /* total cost of those frames */
 
