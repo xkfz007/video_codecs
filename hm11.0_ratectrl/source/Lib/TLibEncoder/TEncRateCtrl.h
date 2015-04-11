@@ -471,12 +471,13 @@ static const char * const x264_motion_est_names[] = { "dia", "hex", "umh", "esa"
 
 #define _NEW_SATD_EST_ 1
 #define RC_P_WINDOW 8
-#define GOPSIZE 4
+#define GOPSIZE 3 //gopsize+1
 #define _OVERFLOW_ADJUST_ 0
 #define _USE_STD_PRED_ 1
 #define _USE_QPOFFSET_ 1
 #define _USE_SMALL_BIG_P_ 0
 #define _USE_LCU_ 0
+#define _USE_BITS_ADJUST_ 1
 
 
 #define X264_RC_CQP                  0 //Constant quantizer, the QPs are simply based on whether the frame is P,I or B frame.
@@ -730,8 +731,14 @@ struct x264_ratecontrol_t
 	int     *i_row_bits;
 	float *i_row_qp;
 	int     *i_row_satd_last;
+#if !_USE_BITS_ADJUST_
 	int     *i_row_bits_last;
 	float *i_row_qp_last;
+#else
+	int     *i_row_bits_last[GOPSIZE];
+	float *i_row_qp_last[GOPSIZE];
+
+#endif
 
 	int *lcu_sad;
 	int lcu_sad_avg;

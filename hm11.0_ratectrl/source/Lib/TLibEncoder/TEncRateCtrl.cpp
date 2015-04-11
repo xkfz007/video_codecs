@@ -1834,12 +1834,15 @@ int x264_ratecontrol_new( x264_ratecontrol_t *rc, x264_param_t* pParam, int lcuw
 	  memset(rc->i_row_qp, 0, (rc->last_row+1)* sizeof( float));
 	  memset(rc->i_row_satd, 0, (rc->last_row+1) * sizeof( int ));
 
+#if !_USE_BITS_ADJUST_
 	  rc->i_row_bits_last = (int*)malloc( (rc->last_row+1) * sizeof( int ) );
 	  rc->i_row_qp_last   = (float*)malloc( (rc->last_row+1) * sizeof( float) );
-	  rc->i_row_satd_last = (int*)malloc( (rc->last_row+1) * sizeof( int ) );
 
 	  memset(rc->i_row_bits_last, 0, (rc->last_row+1) * sizeof( int ));
 	  memset(rc->i_row_qp_last, 0, (rc->last_row+1) * sizeof( float ));
+#endif
+
+	  rc->i_row_satd_last = (int*)malloc( (rc->last_row+1) * sizeof( int ) );
 	  memset(rc->i_row_satd_last, 0, (rc->last_row+1) * sizeof( int ));
 	//  rc->preds=(predictor_t*)malloc(pParam->gopsize*sizeof(predictor_t));
 	 // rc->row_pred=(predictor_t*)malloc(pParam->gopsize*sizeof(predictor_t));
@@ -1850,6 +1853,13 @@ int x264_ratecontrol_new( x264_ratecontrol_t *rc, x264_param_t* pParam, int lcuw
         rc->row_preds[i].coeff= .25;
         rc->row_preds[i].count= 1.0;
         rc->row_preds[i].decay= 0.5;
+#if _USE_BITS_ADJUST_
+	  rc->i_row_bits_last[i] = (int*)malloc( (rc->last_row+1) * sizeof( int ) );
+	  rc->i_row_qp_last[i]   = (float*)malloc( (rc->last_row+1) * sizeof( float) );
+
+	  memset(rc->i_row_bits_last[i], 0, (rc->last_row+1) * sizeof( int ));
+	  memset(rc->i_row_qp_last[i], 0, (rc->last_row+1) * sizeof( float ));
+#endif
 	  }
 		rc->preds[0].coeff=0.57;//I slice
 		rc->preds[1].coeff=0.042;//1st p slice of gop
@@ -2091,8 +2101,17 @@ double predict_row_size( x264_ratecontrol_t *rc, int y, double qp)
 		&& rc->i_row_satd_last[y] > 0 )
 	{
 		double pred_t = 0;
+#if !_USE_BITS_ADJUST_
 		pred_t = rc->i_row_bits_last[y] * rc->i_row_satd[y] / rc->i_row_satd_last[y]
 		* qp2qscale(rc->i_row_qp_last[y]) / qp2qscale(qp);
+#else
+		if(rc->i_frame>GOPSIZE)
+			pred_t = rc->i_row_bits_last[rc->ftype][y] * rc->i_row_satd[y] / rc->i_row_satd_last[y]
+		* qp2qscale(rc->i_row_qp_last[rc->ftype][y]) / qp2qscale(qp);
+		else
+			pred_t = rc->i_row_bits_last[rc->i_frame-1][y] * rc->i_row_satd[y] / rc->i_row_satd_last[y]
+		* qp2qscale(rc->i_row_qp_last[rc->i_frame-1][y]) / qp2qscale(qp);
+#endif
 		return (pred_s+pred_t)/2;
 	}
 	return pred_s ;
@@ -2263,9 +2282,9 @@ void x264_ratecontrol_mb( x264_ratecontrol_t *rc, x264_param_t* pParam, int bits
             float i_qp_min = X264_MAX( prev_row_qp - pParam->rc.i_qp_step, pParam->rc.i_qp_min );
             float buffer_left_planned = rc->buffer_fill - rc->frame_size_planned;
 
-			float step_size = 0.1;//0.5f;
+			float step_size = 0.5;//0.5f;
             while( rc->qpm < i_qp_max
-                   && ((b1 > rc->frame_size_planned * 1.15)//&& rc->qpm <rc->qp_novbv)
+                   && ((b1 > rc->frame_size_planned *1.15)// 1.15)//&& rc->qpm <rc->qp_novbv)
                     || (rc->buffer_fill - b1 < buffer_left_planned * 0.5)))
             {
                 rc->qpm +=step_size;
@@ -2327,13 +2346,16 @@ void x264_ratecontrol_end( x264_ratecontrol_t *rc, x264_param_t* pParam,int bits
 #endif
 		update_vbv( rc, pParam, bits );
 
+		memcpy(rc->i_row_satd_last, rc->i_row_satd, (rc->last_row+1) * sizeof( int ));
+#if !_USE_BITS_ADJUST_
 		memcpy(rc->i_row_bits_last, rc->i_row_bits, (rc->last_row+1) * sizeof( int ));
 		memcpy(rc->i_row_qp_last, rc->i_row_qp, (rc->last_row+1) * sizeof( float ));
-		memcpy(rc->i_row_satd_last, rc->i_row_satd, (rc->last_row+1) * sizeof( int ));
-
+#else
+		memcpy(rc->i_row_bits_last[rc->ftype], rc->i_row_bits, (rc->last_row+1) * sizeof( int ));
+		memcpy(rc->i_row_qp_last[rc->ftype], rc->i_row_qp, (rc->last_row+1) * sizeof( float ));
+#endif
 		memset(rc->i_row_bits, 0, (rc->last_row+1) * sizeof( int ));
 		memset(rc->i_row_qp, 0, (rc->last_row+1) * sizeof( float));
-	//	memset(rc->i_row_satd, 0, (rc->last_row+1) * sizeof( int ));
 	}
 	
 	rc->i_type_last = rc->slice_type;
@@ -2373,12 +2395,20 @@ int x264_ratecontrol_qp( x264_ratecontrol_t *rc )
 }
 
 void x264_ratecontrol_delete( x264_ratecontrol_t *rc, x264_param_t* pParam )
-{	free( rc->i_row_bits_last);
+{	
 	free( rc->i_row_qp);
 	free( rc->i_row_bits);
 	free( rc->i_row_satd);
 	free( rc->i_row_satd_last);
+#if _USE_BITS_ADJUST_
+	for(int i=0;i<GOPSIZE;i++){
+		free( rc->i_row_qp_last[i]);
+		free( rc->i_row_bits_last[i]);
+	}
+#else
 	free( rc->i_row_qp_last);
+	free( rc->i_row_bits_last);
+#endif
 	
 	free(rc->lcu_sad);
 	
