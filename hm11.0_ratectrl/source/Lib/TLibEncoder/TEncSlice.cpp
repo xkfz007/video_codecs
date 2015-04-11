@@ -259,39 +259,6 @@ Void TEncSlice::initEncSlice( TComPic* pcPic, Int pocLast, Int pocCurr, Int iNum
 	 extern int pixel_satd2_wxh( Pel*pix, int i_stride_pix1, int i_width, int i_height );
 	 int (*pixel_func)(Pel*,int,int,int)=pixel_sad2_wxh;
 	 double lambda=15;
-#if 0
-	 UInt uiEncCUOrder;
-	 UInt   uiStartCUAddr;
-	 UInt  uiCUAddr;
-	 UInt   uiBoundingCUAddr;
-	 extern double pixel_var_wxh(Pel *pix1, int i_stride_pix1, int i_width,int i_height) ;
-	 TComSlice* pcSlice            = pcPic->getSlice(getSliceIdx());
-	 xDetermineStartAndBoundingCUAddr ( uiStartCUAddr, uiBoundingCUAddr, pcPic, false );
-	 uiCUAddr = pcPic->getPicSym()->getCUOrderMap( uiStartCUAddr /pcPic->getNumPartInCU());
-	 static int no=0;
-	 for( uiEncCUOrder = uiStartCUAddr/pcPic->getNumPartInCU();
-		 uiEncCUOrder < (uiBoundingCUAddr+(pcPic->getNumPartInCU()-1))/pcPic->getNumPartInCU();
-		 uiCUAddr = pcPic->getPicSym()->getCUOrderMap(++uiEncCUOrder) )
-	 {
-		 no++;
-		 // initialize CU encoder
-		 TComDataCU*& pcCU = pcPic->getCU( uiCUAddr );
-		 pcCU->initCU( pcPic, uiCUAddr );
-		// printf("%d ",uiCUAddr);
-		 Pel*  pOrg_Y   = pcCU->getPic()->getPicYuvOrg()->getLumaAddr(pcCU->getAddr(), 0);
-		 Pel*  pOrg_U   = pcCU->getPic()->getPicYuvOrg()->getCbAddr(pcCU->getAddr(), 0);
-		 Pel*  pOrg_V   = pcCU->getPic()->getPicYuvOrg()->getCrAddr(pcCU->getAddr(), 0);  
-		 Int   stride = pcCU->getPic()->getStride();
-		 Int   cstride = pcCU->getPic()->getCStride();
-		 Int height  = min( pcSlice->getSPS()->getMaxCUHeight(),pcSlice->getSPS()->getPicHeightInLumaSamples() - uiCUAddr / pcPic->getFrameWidthInCU() * pcSlice->getSPS()->getMaxCUHeight() );
-		 Int width   = min( pcSlice->getSPS()->getMaxCUWidth(),pcSlice->getSPS()->getPicWidthInLumaSamples() - uiCUAddr % pcPic->getFrameWidthInCU() * pcSlice->getSPS()->getMaxCUWidth() );
-		 printf("height=%d width=%d [%d]\n",height,width,no);
-
-		 std_val+=pixel_var2_wxh(pOrg_Y,stride,width,height);
-		 std_val+=pixel_var2_wxh(pOrg_U,cstride,width>>1,height>>1);
-		 std_val+=pixel_var2_wxh(pOrg_V,cstride,width>>1,height>>1);
-	 }
-#endif
 	 if(m_pcRateCtrl->i_frame==0)
 	 {
 		 TComPicYuv* picYuvOrg=pcPic->getPicYuvOrg();
@@ -407,13 +374,13 @@ Void TEncSlice::initEncSlice( TComPic* pcPic, Int pocLast, Int pocCurr, Int iNum
  {
 	 m_pcRateCtrl->qp_factor=m_pcCfg->getGOPEntry(iGOPid).m_QPFactor;
 	 m_pcRateCtrl->qp_offset=m_pcCfg->getGOPEntry(iGOPid).m_QPOffset;
+	 m_pcRateCtrl->gop_id=iGOPid;
 	 extern double qp_factor;
 //	 qp_factor=m_pcRateCtrl->qp_factor;
  }
 
 	  x264_ratecontrol_start( m_pcRateCtrl, m_pcParam, eSliceType, 0);
 	  dQP = x264_ratecontrol_qp( m_pcRateCtrl );
-	  m_pcRateCtrl->gop_id=iGOPid;
   }
 #else
   if(eSliceType!=I_SLICE)
