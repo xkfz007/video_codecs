@@ -387,7 +387,6 @@ Void TEncSlice::initEncSlice( TComPic* pcPic, Int pocLast, Int pocCurr, Int iNum
 	 m_pcRateCtrl->qp_factor=m_pcCfg->getGOPEntry(iGOPid).m_QPFactor;
 	 m_pcRateCtrl->qp_offset=eSliceType==I_SLICE?0:m_pcCfg->getGOPEntry(iGOPid).m_QPOffset;
 	 m_pcRateCtrl->gop_id=iGOPid;//eSliceType==I_SLICE?-1:iGOPid;
-//	 printf("gop_size= %d ",m_pcParam->gopsize);
 
 	 m_pcRateCtrl->slice_type=eSliceType;
 	 if (eSliceType== B_SLICE &&m_pcCfg -> getGOPEntry( iGOPid ).m_sliceType == 'P')
@@ -1524,9 +1523,8 @@ Void TEncSlice::compressSlice( TComPic*& rpcPic )
 			resi+=pixel_resi_wxh(pResi_V,cstride,width>>1,height>>1);
 		//	fprintf(fp,"%7d ",resi);
 		//	fclose(fp);
-		//	CuSAD=resi;
+			CuSAD=resi;
 #endif
-
 			m_uiPicSAD+=CuSAD;
 
 			if(m_pcParam->b_variable_qp) {

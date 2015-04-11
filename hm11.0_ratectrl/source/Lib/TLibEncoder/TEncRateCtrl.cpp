@@ -1777,16 +1777,14 @@ int x264_ratecontrol_new( x264_ratecontrol_t *rc, x264_param_t* pParam, int lcuw
 #define ABR_INIT_QP ( pParam->rc.i_rf_constant > 0 ? pParam->rc.i_rf_constant : 24 )
 		rc->accum_p_norm = .01;
 		rc->accum_p_qp = ABR_INIT_QP * rc->accum_p_norm;
+
 		/* estimated ratio that produces a reasonable QP for the first I-frame */
-        rc->cplxr_sum = .01 * pow( 7.0e5, (double)pParam->rc.f_qcompress) * pow( pParam->m_numberOfLCU, 0.5 );
-        rc->wanted_bits_window = 1.0 * rc->bitrate / rc->fps;
+		rc->cplxr_sum = .01 * pow( 7.0e5, (double)pParam->rc.f_qcompress) * pow( pParam->m_numberOfLCU, 0.5 );
+		rc->wanted_bits_window = 1.0 * rc->bitrate / rc->fps;
         rc->last_pict_type = I_SLICE;
 
 		rc->wanted_bits=0;
 		rc->bitcost = 0;
-		rc->bitcost_gop = 0;
-
-
 	}
 #if _USE_REAL_SATD_
 		rc->last_satd =picWidth*picHeight*1.5*16;
@@ -1838,30 +1836,29 @@ int x264_ratecontrol_new( x264_ratecontrol_t *rc, x264_param_t* pParam, int lcuw
   rc->lstep_for_level_inv=(double*)malloc(rc->numberOfLevel*sizeof(double));
   rc->cplxr_sum_for_level=(double*)malloc(rc->numberOfLevel*sizeof(double));
   rc->wanted_bits_window_for_level=(double*)malloc(rc->numberOfLevel*sizeof(double));
-  rc->last_rceq_for_level=(double*)malloc(rc->numberOfLevel*sizeof(double));
-  rc->bits_for_level=(double*)malloc(rc->numberOfLevel*sizeof(double));
-  rc->GOPID2Level=(int*)malloc(GOPSize*sizeof(int));
 
+  rc->GOPID2Level=(int*)malloc(GOPSize*sizeof(int));
+  rc->bitsRatio=(int*)malloc(GOPSize*sizeof(int));
+  rc->bits_for_gopid=(double*)malloc(GOPSize*sizeof(double));
+  rc->bitsRatio_sum=0;
   for ( int i=0; i<GOPSize; i++ )
   {
     rc->GOPID2Level[i] = 1;
+	rc->bitsRatio[i]=10;
     if ( !GOPList[i].m_refPic )
     {
       rc->GOPID2Level[i] = 2;
+	  if(pParam->rc.b_adap_bits)
+		  rc->bitsRatio[i]=2;
     }
+	rc->bitsRatio_sum+=rc->bitsRatio[i];
   }
 
-  if ( !isLowdelay && GOPSize == 8 )
-  {
-    rc->GOPID2Level[0] = 1;
-    rc->GOPID2Level[1] = 2;
-    rc->GOPID2Level[2] = 3;
-    rc->GOPID2Level[3] = 4;
-    rc->GOPID2Level[4] = 4;
-    rc->GOPID2Level[5] = 3;
-    rc->GOPID2Level[6] = 4;
-    rc->GOPID2Level[7] = 4;
+  for(int i=0;i<GOPSize;i++){
+	  int level=rc->GOPID2Level[i];
+	  rc->bits_for_gopid[i]=GOPSize*rc->bitrate/rc->fps*rc->bitsRatio[i]/rc->bitsRatio_sum;
   }
+
   rc->last_qscale_for_level[0]=qp2qscale(26);
   rc->lstep_for_level[0]=exp2f(pParam->rc.i_qp_step*2/ 6.0);
   rc->lstep_for_level_inv[0]=exp2f(pParam->rc.i_qp_step*0.5 / 6.0);
@@ -1871,14 +1868,9 @@ int x264_ratecontrol_new( x264_ratecontrol_t *rc, x264_param_t* pParam, int lcuw
 	  rc->last_qscale_for_level[i]=qp2qscale(26);
 	  rc->lstep_for_level[i]=exp2f(pParam->rc.i_qp_step*i*0.5 / 6.0);
 	  rc->lstep_for_level_inv[i]=exp2f(pParam->rc.i_qp_step*(rc->numberOfLevel-i)*0.5 / 6.0);
-	  
 	  rc->cplxr_sum_for_level[i] =0;
 	  rc->wanted_bits_window_for_level[i] =0;
   }
-
-
-  rc->bits_for_level[1]=1*1.0/1.0*rc->bitrate/rc->fps;
-  rc->bits_for_level[2]=1*1.0/1.0*rc->bitrate/rc->fps;
 
   rc->Prev_FrameLevel=-1;
 #endif
@@ -2067,17 +2059,41 @@ static float rate_estimate_qscale(x264_ratecontrol_t *rcc, x264_param_t* pParam,
 
 	double blurred_complexity = rcc->short_term_cplxsum / rcc->short_term_cplxcount;
 
-	if( pParam->rc.i_rc_method==X264_RC_CRF )
-	{
+	if( pParam->rc.i_rc_method==X264_RC_CRF ) {
 		q = get_qscale( rcc, blurred_complexity, pParam,  rcc->rate_factor_constant);
-	//	overflow = 1;
 	}
 	else
 	{
-#if _USE_FRAMELEVEL_
+#if 0
+		if(rc->slice_type==I_SLICE){
+			for(int i=0;i<rc->numberOfLevel;i++){
+				rc->cplxr_sum_for_level[i] += bits * qp2qscale(rc->qpa) / rc->last_rceq;
+				rc->wanted_bits_window_for_level[i] += rc->bitrate / rc->fps;
+			}
+		}
+		else{
+			rc->cplxr_sum_for_level[rc->FrameLevel] *= rc->cbr_decay;
+			rc->wanted_bits_window_for_level[rc->FrameLevel] *= rc->cbr_decay;
+
+			rc->cplxr_sum_for_level[rc->FrameLevel] += bits * qp2qscale(rc->qpa) / rc->last_rceq;
+			rc->wanted_bits_window_for_level[rc->FrameLevel] += rc->bits_for_gopid[rc->FrameLevel];
+		}
 		q = get_qscale( rcc, blurred_complexity, pParam, 
 			rcc->wanted_bits_window_for_level[rcc->FrameLevel] / rcc->cplxr_sum_for_level[rcc->FrameLevel]);
+#endif
+#if _USE_FRAMELEVEL_
+		if(rcc->i_frame>0){
+			rcc->wanted_bits_window *= rcc->cbr_decay;
+			rcc->wanted_bits_window += rcc->bits_for_frame;
+			rcc->wanted_bits+=rcc->bits_for_frame;
+		}
+		q = get_qscale( rcc, blurred_complexity, pParam, rcc->wanted_bits_window / rcc->cplxr_sum);
 #else
+		if(rcc->i_frame>0){
+			rcc->wanted_bits_window *= rcc->cbr_decay;
+			rcc->wanted_bits_window += rcc->bitrate/rcc->fps;
+			rcc->wanted_bits+=rcc->bitrate/rcc->fps;
+		}
 		q = get_qscale( rcc, blurred_complexity, pParam, rcc->wanted_bits_window / rcc->cplxr_sum);
 #endif
 		/* ABR code can potentially be counterproductive in CBR, so just don't bother.
@@ -2087,7 +2103,7 @@ static float rate_estimate_qscale(x264_ratecontrol_t *rcc, x264_param_t* pParam,
 		if(rcc->wanted_bits==0)
 			overflow=1.02;
 		q *= overflow;
-		printf("of= %5.2f ",overflow);
+		printf("of= %.2f tbits= %.0f ",overflow,rcc->bits_for_frame);
 
 	}
 	if( rcc->slice_type== I_SLICE 
@@ -2247,8 +2263,8 @@ static float rate_estimate_qscale(x264_ratecontrol_t *rcc, x264_param_t* pParam,
 
 #if _USE_FRAMELEVEL_
 		if(rcc->FrameLevel<rcc->Prev_FrameLevel&&q>rcc->last_qscale)
-		//	q=rcc->last_qscale_for_level[rcc->FrameLevel]/rcc->lstep_for_level[rcc->FrameLevel];
 			q=rcc->last_qscale/rcc->lstep_for_level_inv[rcc->FrameLevel];
+		//	q=rcc->last_qscale_for_level[rcc->FrameLevel]/rcc->lstep_for_level_inv[rcc->FrameLevel];
 //		if(rcc->FrameLevel>rcc->Prev_FrameLevel&&q<=rcc->last_qscale&&rcc->brate>rcc->bitrate/1000)
 //			q=rcc->last_qscale*rcc->lstep_for_level[rcc->FrameLevel];
 
@@ -2378,17 +2394,16 @@ void x264_ratecontrol_start( x264_ratecontrol_t *rc, x264_param_t* pParam, int i
 	rc->FrameLevel=rc->GOPID2Level[rc->gop_id];
 	if(rc->slice_type==I_SLICE)
 		rc->FrameLevel=0;
-#endif
-
-//	printf("id= %d ty= %d ",rc->gop_id,rc->slice_type);
 	printf("FL= %d ",rc->FrameLevel);
 	if(rc->slice_type==I_SLICE)
-		rc->p_after_i=0;
+		rc->bits_for_frame=rc->bitrate/rc->fps;
 	else 
-		rc->p_after_i++;
+		rc->bits_for_frame=rc->bits_for_gopid[rc->gop_id];
+#endif
+
 	
 //	printf("bits= %d ",rc->bitcost);
-	printf("cost= %d ",rc->last_satd);
+	printf("cost= %7d ",rc->last_satd);
 //	printf("var= %f ",rc->std_val);
 	double wgt;
 	if(rc->slice_type!=I_SLICE){
@@ -2414,17 +2429,16 @@ void x264_ratecontrol_start( x264_ratecontrol_t *rc, x264_param_t* pParam, int i
 		wgt=0.9;
 		if(rc->i_frame==0) {
 		rc->last_satd=rc->std_val;
+		rc->sad_Ilast=rc->std_val;
 		rc->framesad_Pavg= rc->last_satd*0.6;
 		//rc->framesad_Pavg= rc->last_satd*0.679+225400;
-		rc->sad_Ilast=rc->last_satd;
-
-	//	rc->last_satd_for[2]=rc->std_val;
 		}
 		else
 			rc->last_satd=wgt*rc->sad_Ilast+(1-wgt)*rc->framesad_Pavg;
+	//		rc->last_satd=(1-wgt)*rc->sad_Ilast+wgt*rc->std_val;
 	}
 
-	printf("cost2= %d ",rc->last_satd);
+	printf("cost2= %7d ",rc->last_satd);
 //	printf("pavg= %f ",rc->framesad_Pavg);
 //	printf("cplxr_sum= %f ",rc->cplxr_sum);
     if( rc->b_vbv )
@@ -2762,34 +2776,12 @@ void x264_ratecontrol_end( x264_ratecontrol_t *rc, x264_param_t* pParam,int bits
 		rc->qpa = rc->qp;
 
 	rc->bitcost += bits;
-	rc->bitcost_gop+=bits;
+	rc->bitcost_last=bits;
 
 	if( rc->b_abr )
 	{
-#if _USE_FRAMELEVEL_
-		if(rc->slice_type==I_SLICE){
-			for(int i=0;i<rc->numberOfLevel;i++){
-				rc->cplxr_sum_for_level[i] += bits * qp2qscale(rc->qpa) / rc->last_rceq;
-				rc->wanted_bits_window_for_level[i] += rc->bitrate / rc->fps;
-			}
-		}
-		else{
-			rc->cplxr_sum_for_level[rc->FrameLevel] *= rc->cbr_decay;
-			rc->wanted_bits_window_for_level[rc->FrameLevel] *= rc->cbr_decay;
-
-			rc->cplxr_sum_for_level[rc->FrameLevel] += bits * qp2qscale(rc->qpa) / rc->last_rceq;
-			rc->wanted_bits_window_for_level[rc->FrameLevel] += rc->bits_for_level[rc->FrameLevel];
-		}
-#else
-
 		rc->cplxr_sum *= rc->cbr_decay;
-		rc->wanted_bits_window *= rc->cbr_decay;
-
-		rc->cplxr_sum += bits * qp2qscale(rc->qpa) / rc->last_rceq;
-		rc->wanted_bits_window += rc->bitrate / rc->fps;
-#endif
-
-		rc->wanted_bits+=rc->bitrate/rc->fps;
+		rc->cplxr_sum += bits* qp2qscale(rc->qpa) / rc->last_rceq;
 #if _USE_FRAMELEVEL_
 		if(rc->FrameLevel<2){
 			rc->accum_p_qp   *= .95;
@@ -2875,7 +2867,7 @@ void x264_ratecontrol_end( x264_ratecontrol_t *rc, x264_param_t* pParam,int bits
 	rc->i_frame++;
 
 	rc->brate=rc->bitcost/1000.0/(rc->i_frame/rc->fps);
-	printf("brate= %7.2f ",rc->brate);
+	printf("brate= %.2f ",rc->brate);
 }
 
 int x264_ratecontrol_qp( x264_ratecontrol_t *rc )
@@ -2907,10 +2899,12 @@ void x264_ratecontrol_delete( x264_ratecontrol_t *rc, x264_param_t* pParam )
 	free(rc->last_qscale_for_level);
 	free(rc->lstep_for_level);
 	free(rc->lstep_for_level_inv);
+	free(rc->cplxr_sum_for_level);
+	free(rc->wanted_bits_window_for_level);
+	free(rc->bits_for_gopid);
+	free(rc->bitsRatio);
 
 #endif
-	
-
 }
 
 double pixel_var_wxh(Pel *pix1, int i_stride_pix1, int i_width,int i_height) 

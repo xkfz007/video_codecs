@@ -249,6 +249,7 @@ Double VBV_Init;
 Int QPStep;
 Double Decay;
 Double IPFactor;
+Bool AdaptiveBits;
 Bool TAppEncCfg::parseCfg( Int argc, Char* argv[] )
 {
   Bool do_help = false;
@@ -452,6 +453,7 @@ Bool TAppEncCfg::parseCfg( Int argc, Char* argv[] )
   ("VBV-Init",VBV_Init,0.9,"Initial VBV buffer occupancy [0.9]")
 #endif
   ("LCURC,-lrc",LCURC,false,"LCU level Rate Control")
+  ("AdaptiveBits",AdaptiveBits,false,"LCU level Rate Control")
 #endif
 
   ("TransquantBypassEnableFlag", m_TransquantBypassEnableFlag, false, "transquant_bypass_enable_flag indicator in PPS")
@@ -1462,6 +1464,7 @@ Void TAppEncCfg::xPrintParameter()
 	printf("VBV-Init                     : %4.2f\n",VBV_Init);
 #endif
 	printf("LCURC                        : %d\n", LCURC);
+	printf("AdaptiveBits                 : %d\n", AdaptiveBits);
   }
 #endif
   printf("Max Num Merge Candidates     : %d\n", m_maxNumMergeCand);

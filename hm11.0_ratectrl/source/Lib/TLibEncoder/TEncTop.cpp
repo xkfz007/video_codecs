@@ -141,6 +141,8 @@ Void TEncTop::create ()
   m_param.rc.f_decay=Decay;
   extern Double IPFactor;
   m_param.rc.f_ip_factor=IPFactor;
+  extern Bool AdaptiveBits;
+  m_param.rc.b_adap_bits=AdaptiveBits;
 
 #if _USE_VBV_
   extern Int VBV_MaxRate;

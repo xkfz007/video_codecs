@@ -439,6 +439,7 @@ typedef struct
 
 		int         b_cbr;          /* use bitrate instead of CQP */
 		int b_lcurc;
+		int b_adap_bits;
 		int         i_bitrate;
 		int         i_rf_constant;  /* 1pass VBR, nominal QP */
 		float       f_rate_tolerance;
@@ -526,10 +527,12 @@ struct x264_ratecontrol_t
 	double ratefactor;
 	double *cplxr_sum_for_level;
 	double *wanted_bits_window_for_level;
-	double *last_rceq_for_level;
-	double *bits_for_level;
+	double *bits_for_gopid;
+	double bits_for_frame;
 	double *realbits_for_level;
 	double *wanted_bits_for_level;
+	int *bitsRatio;
+	int bitsRatio_sum;
 
 
 	double wanted_bits_window_lcu;
@@ -579,8 +582,8 @@ struct x264_ratecontrol_t
 	int single_frame_vbv;
 
 //add
-	int64_t bitcost;
-	int64_t bitcost_gop;
+	int bitcost;
+	int bitcost_last;
 	int i_frame;
 	int i_mb_x;
 	int i_mb_y;
