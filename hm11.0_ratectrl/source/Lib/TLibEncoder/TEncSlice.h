@@ -135,6 +135,9 @@ public:
 #if RATE_CONTROL_INTRA
   Void    calCostSliceI       ( TComPic*& rpcPic );
 #endif
+#ifdef X264_RATECONTROL_2006 
+  Int calCostSliceI       ( TComPic*& rpcPic );
+#endif
   Void    encodeSlice         ( TComPic*& rpcPic, TComOutputBitstream* pcSubstreams  );
   
   // misc. functions

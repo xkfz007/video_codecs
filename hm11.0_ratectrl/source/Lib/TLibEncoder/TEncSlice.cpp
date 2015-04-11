@@ -163,7 +163,48 @@ Void TEncSlice::init( TEncTop* pcEncTop )
   m_pcParam			  = pcEncTop->getParam();
 #endif
 }
+#ifdef X264_RATECONTROL_2006
+Int TEncSlice::calCostSliceI(TComPic*& rpcPic)
+{
+  UInt    uiCUAddr;
+  UInt    uiStartCUAddr;
+  UInt    uiBoundingCUAddr;
+  Int     iSumHad, shift = g_bitDepthY-8, offset = (shift>0)?(1<<(shift-1)):0;;
+  Double  iSumHadSlice = 0;
+  Int m_costIntra;
 
+  rpcPic->getSlice(getSliceIdx())->setSliceSegmentBits(0);
+  TComSlice* pcSlice            = rpcPic->getSlice(getSliceIdx());
+  xDetermineStartAndBoundingCUAddr ( uiStartCUAddr, uiBoundingCUAddr, rpcPic, false );
+
+//FILE* fp;
+//fp=fopen("lcu_hadamard.txt","a");
+
+  UInt uiEncCUOrder;
+  uiCUAddr = rpcPic->getPicSym()->getCUOrderMap( uiStartCUAddr /rpcPic->getNumPartInCU()); 
+  for( uiEncCUOrder = uiStartCUAddr/rpcPic->getNumPartInCU();
+       uiEncCUOrder < (uiBoundingCUAddr+(rpcPic->getNumPartInCU()-1))/rpcPic->getNumPartInCU();
+       uiCUAddr = rpcPic->getPicSym()->getCUOrderMap(++uiEncCUOrder) )
+  {
+    // initialize CU encoder
+    TComDataCU*& pcCU = rpcPic->getCU( uiCUAddr );
+    pcCU->initCU( rpcPic, uiCUAddr );
+
+    Int height  = min( pcSlice->getSPS()->getMaxCUHeight(),pcSlice->getSPS()->getPicHeightInLumaSamples() - uiCUAddr / rpcPic->getFrameWidthInCU() * pcSlice->getSPS()->getMaxCUHeight() );
+    Int width   = min( pcSlice->getSPS()->getMaxCUWidth(),pcSlice->getSPS()->getPicWidthInLumaSamples() - uiCUAddr % rpcPic->getFrameWidthInCU() * pcSlice->getSPS()->getMaxCUWidth() );
+
+    iSumHad = m_pcCuEncoder->updateLCUDataISlice(pcCU, uiCUAddr, width, height);
+
+    m_costIntra=(iSumHad+offset)>>shift;
+    iSumHadSlice += m_costIntra;
+
+//	fprintf(fp,"%7d ",m_costIntra);
+  }
+ // fprintf(fp,"\n");
+//	fclose(fp);
+  return iSumHadSlice;
+}
+#endif
 /**
  - non-referenced frame marking
  - QP computation based on temporal structure
@@ -384,6 +425,10 @@ Void TEncSlice::initEncSlice( TComPic* pcPic, Int pocLast, Int pocCurr, Int iNum
 			 m_pcRateCtrl->lcu_satd_avg=std_val/m_pcParam->m_numberOfLCU;
 	 }
  }
+ 
+Int sliceHad=calCostSliceI(pcPic);
+printf("had= %d ",sliceHad);
+ 
 	 m_pcRateCtrl->qp_factor=m_pcCfg->getGOPEntry(iGOPid).m_QPFactor;
 	 m_pcRateCtrl->qp_offset=eSliceType==I_SLICE?0:m_pcCfg->getGOPEntry(iGOPid).m_QPOffset;
 	 m_pcRateCtrl->gop_id=iGOPid;//eSliceType==I_SLICE?-1:iGOPid;
@@ -393,7 +438,7 @@ Void TEncSlice::initEncSlice( TComPic* pcPic, Int pocLast, Int pocCurr, Int iNum
     {
 		m_pcRateCtrl->slice_type=P_SLICE;
     }
-	  x264_ratecontrol_start( m_pcRateCtrl, m_pcParam, eSliceType, 0);
+	  x264_ratecontrol_start( m_pcRateCtrl, m_pcParam, eSliceType, sliceHad);
 	  dQP = x264_ratecontrol_qp( m_pcRateCtrl );
   }
 #else
@@ -1523,7 +1568,7 @@ Void TEncSlice::compressSlice( TComPic*& rpcPic )
 			resi+=pixel_resi_wxh(pResi_V,cstride,width>>1,height>>1);
 		//	fprintf(fp,"%7d ",resi);
 		//	fclose(fp);
-			CuSAD=resi;
+		//	CuSAD=resi;
 #endif
 			m_uiPicSAD+=CuSAD;
 

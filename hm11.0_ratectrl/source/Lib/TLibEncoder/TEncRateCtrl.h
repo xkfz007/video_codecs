@@ -411,6 +411,7 @@ private:
 #define _USE_I_REDUCE_QPSTEP_ 0
 #define _USE_SATD_BASED_LCU_ 1
 #define _USE_FRAMELEVEL_ 1
+#define _USE_ADAPTIVEBITS_ 1
 
 
 #define X264_RC_CQP                  0 //Constant quantizer, the QPs are simply based on whether the frame is P,I or B frame.
@@ -456,6 +457,7 @@ typedef struct
 	} rc;
 	int frame_to_be_encoded;
 	int gopsize;
+	int key_int;
 
 	int m_numberOfLCU;
 	int b_variable_qp;
@@ -529,10 +531,12 @@ struct x264_ratecontrol_t
 	double *wanted_bits_window_for_level;
 	double *bits_for_gopid;
 	double bits_for_frame;
+	double bits_for_I;
 	double *realbits_for_level;
 	double *wanted_bits_for_level;
 	int *bitsRatio;
 	int bitsRatio_sum;
+	int bits_left;
 
 
 	double wanted_bits_window_lcu;
@@ -617,7 +621,7 @@ struct x264_ratecontrol_t
 
 int x264_ratecontrol_new( x264_ratecontrol_t* rc, x264_param_t* pParam, int lcuwidth, int lcuheight,GOPEntry  *GOPList);
 void x264_ratecontrol_delete( x264_ratecontrol_t* rc,x264_param_t* pParam );
-void x264_ratecontrol_start( x264_ratecontrol_t *rc, x264_param_t* pParam, int i_slice_type, int i_force_qp );
+void x264_ratecontrol_start( x264_ratecontrol_t *rc, x264_param_t* pParam, int i_slice_type, int SumHad);
 void x264_ratecontrol_end( x264_ratecontrol_t *rc, x264_param_t* pParam,int bits, int cost);
 int x264_ratecontrol_qp( x264_ratecontrol_t *rc );
 void x264_ratecontrol_mb( x264_ratecontrol_t *rc, x264_param_t* pParam, int bits, int cost );

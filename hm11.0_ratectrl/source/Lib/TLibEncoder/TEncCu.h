@@ -133,6 +133,7 @@ public:
   Void setBitCounter        ( TComBitCounter* pcBitCounter ) { m_pcBitCounter = pcBitCounter; }
 #ifdef X264_RATECONTROL_2006
   UInt getLCUPredictionSAD() { return m_LCUPredictionSAD; }
+  Int   updateLCUDataISlice ( TComDataCU* pcCU, Int LCUIdx, Int width, Int height );
 #endif
 #if RATE_CONTROL_LAMBDA_DOMAIN && !M0036_RC_IMPROVEMENT
   UInt getLCUPredictionSAD() { return m_LCUPredictionSAD; }

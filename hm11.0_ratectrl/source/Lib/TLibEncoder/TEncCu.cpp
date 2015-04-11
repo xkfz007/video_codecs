@@ -768,6 +768,7 @@ Void TEncCu::xCompressCU( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, UInt u
     {
       bSubBranch = true;
     }
+
   }
   else if(!(bSliceEnd && bInsidePicture))
   {
@@ -1203,6 +1204,102 @@ Void TEncCu::xEncodeCU( TComDataCU* pcCU, UInt uiAbsPartIdx, UInt uiDepth )
   // --- write terminating bit ---
   finishCU(pcCU,uiAbsPartIdx,uiDepth);
 }
+#ifdef X264_RATECONTROL_2006
+
+Int xCalcHADs8x8_ISlice(Pel *piOrg, Int iStrideOrg) 
+{
+  Int k, i, j, jj;
+  Int diff[64], m1[8][8], m2[8][8], m3[8][8], iSumHad = 0;
+
+  for( k = 0; k < 64; k += 8 )
+  {
+    diff[k+0] = piOrg[0] ;
+    diff[k+1] = piOrg[1] ;
+    diff[k+2] = piOrg[2] ;
+    diff[k+3] = piOrg[3] ;
+    diff[k+4] = piOrg[4] ;
+    diff[k+5] = piOrg[5] ;
+    diff[k+6] = piOrg[6] ;
+    diff[k+7] = piOrg[7] ;
+ 
+    piOrg += iStrideOrg;
+  }
+  
+  //horizontal
+  for (j=0; j < 8; j++)
+  {
+    jj = j << 3;
+    m2[j][0] = diff[jj  ] + diff[jj+4];
+    m2[j][1] = diff[jj+1] + diff[jj+5];
+    m2[j][2] = diff[jj+2] + diff[jj+6];
+    m2[j][3] = diff[jj+3] + diff[jj+7];
+    m2[j][4] = diff[jj  ] - diff[jj+4];
+    m2[j][5] = diff[jj+1] - diff[jj+5];
+    m2[j][6] = diff[jj+2] - diff[jj+6];
+    m2[j][7] = diff[jj+3] - diff[jj+7];
+    
+    m1[j][0] = m2[j][0] + m2[j][2];
+    m1[j][1] = m2[j][1] + m2[j][3];
+    m1[j][2] = m2[j][0] - m2[j][2];
+    m1[j][3] = m2[j][1] - m2[j][3];
+    m1[j][4] = m2[j][4] + m2[j][6];
+    m1[j][5] = m2[j][5] + m2[j][7];
+    m1[j][6] = m2[j][4] - m2[j][6];
+    m1[j][7] = m2[j][5] - m2[j][7];
+    
+    m2[j][0] = m1[j][0] + m1[j][1];
+    m2[j][1] = m1[j][0] - m1[j][1];
+    m2[j][2] = m1[j][2] + m1[j][3];
+    m2[j][3] = m1[j][2] - m1[j][3];
+    m2[j][4] = m1[j][4] + m1[j][5];
+    m2[j][5] = m1[j][4] - m1[j][5];
+    m2[j][6] = m1[j][6] + m1[j][7];
+    m2[j][7] = m1[j][6] - m1[j][7];
+  }
+  
+  //vertical
+  for (i=0; i < 8; i++)
+  {
+    m3[0][i] = m2[0][i] + m2[4][i];
+    m3[1][i] = m2[1][i] + m2[5][i];
+    m3[2][i] = m2[2][i] + m2[6][i];
+    m3[3][i] = m2[3][i] + m2[7][i];
+    m3[4][i] = m2[0][i] - m2[4][i];
+    m3[5][i] = m2[1][i] - m2[5][i];
+    m3[6][i] = m2[2][i] - m2[6][i];
+    m3[7][i] = m2[3][i] - m2[7][i];
+    
+    m1[0][i] = m3[0][i] + m3[2][i];
+    m1[1][i] = m3[1][i] + m3[3][i];
+    m1[2][i] = m3[0][i] - m3[2][i];
+    m1[3][i] = m3[1][i] - m3[3][i];
+    m1[4][i] = m3[4][i] + m3[6][i];
+    m1[5][i] = m3[5][i] + m3[7][i];
+    m1[6][i] = m3[4][i] - m3[6][i];
+    m1[7][i] = m3[5][i] - m3[7][i];
+    
+    m2[0][i] = m1[0][i] + m1[1][i];
+    m2[1][i] = m1[0][i] - m1[1][i];
+    m2[2][i] = m1[2][i] + m1[3][i];
+    m2[3][i] = m1[2][i] - m1[3][i];
+    m2[4][i] = m1[4][i] + m1[5][i];
+    m2[5][i] = m1[4][i] - m1[5][i];
+    m2[6][i] = m1[6][i] + m1[7][i];
+    m2[7][i] = m1[6][i] - m1[7][i];
+  }
+  
+  for (i = 0; i < 8; i++)
+  {
+    for (j = 0; j < 8; j++)
+    {
+      iSumHad += abs(m2[i][j]);
+    }
+  }
+  iSumHad -= abs(m2[0][0]);
+  iSumHad =(iSumHad+2)>>2;
+  return(iSumHad);
+}
+#endif
 
 #if RATE_CONTROL_INTRA
 Int xCalcHADs8x8_ISlice(Pel *piOrg, Int iStrideOrg) 
@@ -1321,6 +1418,28 @@ Int  TEncCu::updateLCUDataISlice(TComDataCU* pcCU, Int LCUIdx, Int width, Int he
 }
 #endif
 
+#ifdef X264_RATECONTROL_2006
+Int  TEncCu::updateLCUDataISlice(TComDataCU* pcCU, Int LCUIdx, Int width, Int height)
+{
+  Int  xBl, yBl; 
+  const Int iBlkSize = 8;
+
+  Pel* pOrgInit   = pcCU->getPic()->getPicYuvOrg()->getLumaAddr(pcCU->getAddr(), 0);
+  Int  iStrideOrig = pcCU->getPic()->getPicYuvOrg()->getStride();
+  Pel  *pOrg;
+
+  Int iSumHad = 0;
+  for ( yBl=0; (yBl+iBlkSize)<=height; yBl+= iBlkSize)
+  {
+    for ( xBl=0; (xBl+iBlkSize)<=width; xBl+= iBlkSize)
+    {
+      pOrg = pOrgInit + iStrideOrig*yBl + xBl; 
+      iSumHad += xCalcHADs8x8_ISlice(pOrg, iStrideOrig);
+    }
+  }
+  return(iSumHad);
+}
+#endif
 /** check RD costs for a CU block encoded with merge
  * \param rpcBestCU
  * \param rpcTempCU
@@ -1535,6 +1654,7 @@ Void TEncCu::xCheckRDCostIntra( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, 
   {
     rpcTempCU->getTotalBins() = ((TEncBinCABAC *)((TEncSbac*)m_pcEntropyCoder->m_pcEntropyCoderIf)->getEncBinIf())->getBinsCoded();
   }
+
   rpcTempCU->getTotalCost() = m_pcRdCost->calcRdCost( rpcTempCU->getTotalBits(), rpcTempCU->getTotalDistortion() );
   
   xCheckDQP( rpcTempCU );
