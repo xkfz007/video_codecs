@@ -489,8 +489,8 @@ struct x264_ratecontrol_t
 	int start_flag;
 
 	int qp;                     /* qp for current frame */
-	float qpm;                    /* qp for current macroblock */
-	float qpa;                  /* average of macroblocks' qp */
+	double qpm;                    /* qp for current macroblock */
+	double qpa;                  /* average of macroblocks' qp */
 	float qpa_prev;
 	float qp_novbv;
 
@@ -536,11 +536,12 @@ struct x264_ratecontrol_t
 	double last_qscale_lcu;
 	double lcu_satd_avg;
 	double lcu_satd_sum;
-	int lcu_idx;
+	double lcu_idx;
+	int lcu_num;
 
 	double last_qscale;
 //	double last_qscale2;
-	double last_qscale_for[3];  /* last qscale for a specific pict type, used for max_diff & ipb factor stuff  */
+	double last_qscale_for[4];  /* last qscale for a specific pict type, used for max_diff & ipb factor stuff  */
 	double last_qscale_I;
 	int last_non_b_pict_type;
 	double accum_p_qp;          /* for determining I-frame quant */
@@ -605,6 +606,8 @@ void x264_ratecontrol_end( x264_ratecontrol_t *rc, x264_param_t* pParam,int bits
 int x264_ratecontrol_qp( x264_ratecontrol_t *rc );
 void x264_ratecontrol_mb( x264_ratecontrol_t *rc, x264_param_t* pParam, int bits, int cost );
 void x264_ratecontrol_lcu( x264_ratecontrol_t *rc, x264_param_t* pParam, int bits, int cost );
+void x264_ratecontrol_lcu_start( x264_ratecontrol_t *rc, x264_param_t* pParam);
+void x264_ratecontrol_lcu_end( x264_ratecontrol_t *rc, x264_param_t* pParam, int bits, int cost );
 void  x264_param_default( x264_param_t *param );
 #else
 

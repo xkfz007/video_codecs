@@ -367,7 +367,7 @@ Void TEncSlice::initEncSlice( TComPic* pcPic, Int pocLast, Int pocCurr, Int iNum
 				 if(m_pcParam->b_variable_qp)
 					 m_pcRateCtrl->i_row_satd_last[y/lcu_sz]+=lcu_std_val;
 				 else if(m_pcParam->rc.b_lcurc)
-					 m_pcRateCtrl->lcu_satd[y/lcu_sz*picWidth/lcu_sz+x/lcu_sz]=lcu_std_val;
+					 m_pcRateCtrl->lcu_satd[y/lcu_sz*picWidth/lcu_sz+x/lcu_sz]=0;//lcu_std_val;
 #if 0//_SAD_TEST_
 				 fprintf(fp,"%7d ",lcu_std_val);
 #endif
@@ -1139,6 +1139,8 @@ Void TEncSlice::compressSlice( TComPic*& rpcPic )
         xLamdaRecalculation(m_pcRateCtrl->getUnitQP(), m_pcRateCtrl->getGOPId(), pcSlice->getDepth(), pcSlice->getSliceType(), pcSlice->getSPS(), pcSlice );
       }
 #else
+		if(m_pcParam->rc.b_lcurc)
+			x264_ratecontrol_lcu_start( m_pcRateCtrl, m_pcParam);
 		int qp_tmp=x264_ratecontrol_qp(m_pcRateCtrl);
         xLamdaRecalculation(qp_tmp, m_pcRateCtrl->gop_id, pcSlice->getDepth(), pcSlice->getSliceType(), pcSlice->getSPS(), pcSlice );
 //		printf("qpm= %d ",m_pcRateCtrl->qpm);
@@ -1510,8 +1512,7 @@ Void TEncSlice::compressSlice( TComPic*& rpcPic )
 			CuSAD+=pixel_func(pOrg_V,cstride,pPred_V,cstride,width>>1,height>>1);
 
 #endif
-			m_uiPicSAD+=CuSAD;
-#if 0
+#if 1
 		//	FILE *fp=fopen("lcu_res.txt","a");
 			Pel*  pResi_Y   = pcCU->getPic()->getPicYuvResi()->getLumaAddr(pcCU->getAddr(), 0);
 			Pel*  pResi_U   = pcCU->getPic()->getPicYuvResi()->getCbAddr(pcCU->getAddr(), 0);
@@ -1523,14 +1524,18 @@ Void TEncSlice::compressSlice( TComPic*& rpcPic )
 			resi+=pixel_resi_wxh(pResi_V,cstride,width>>1,height>>1);
 		//	fprintf(fp,"%7d ",resi);
 		//	fclose(fp);
+		//	CuSAD=resi;
 #endif
+
+			m_uiPicSAD+=CuSAD;
 
 			if(m_pcParam->b_variable_qp) {
 				x264_ratecontrol_mb( m_pcRateCtrl, m_pcParam, pcCU->getTotalBits(), CuSAD);
 			}
 			else if(m_pcParam->rc.b_lcurc) {
-				x264_ratecontrol_lcu( m_pcRateCtrl, m_pcParam, pcCU->getTotalBits(), CuSAD);
-			//	x264_ratecontrol_lcu( m_pcRateCtrl, m_pcParam, pcCU->getTotalBits(), resi);
+
+		//		x264_ratecontrol_lcu( m_pcRateCtrl, m_pcParam, pcCU->getTotalBits(), CuSAD);
+				x264_ratecontrol_lcu_end( m_pcRateCtrl, m_pcParam, pcCU->getTotalBits(), resi);
 			}
 
 #endif
