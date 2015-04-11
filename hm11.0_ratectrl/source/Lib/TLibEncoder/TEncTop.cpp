@@ -222,13 +222,17 @@ Void TEncTop::create ()
   m_param.rc.b_lcurc=LCURC;
   extern Int QPStep;
   m_param.rc.i_qp_step=QPStep;
+  extern Double Decay;
+  m_param.rc.f_decay=Decay;
 
+#if _USE_VBV_
   extern Int VBV_MaxRate;
   extern Int VBV_BufSize;
   extern Double VBV_Init;
   m_param.rc.i_vbv_max_bitrate = VBV_MaxRate;
   m_param.rc.i_vbv_buffer_size = VBV_BufSize;
   m_param.rc.f_vbv_buffer_init=VBV_Init;
+#endif
   memset(&m_x264RC, 0, sizeof(x264_ratecontrol_t));
   x264_ratecontrol_new(&m_x264RC, &m_param, g_uiMaxCUWidth, g_uiMaxCUHeight);
 #else

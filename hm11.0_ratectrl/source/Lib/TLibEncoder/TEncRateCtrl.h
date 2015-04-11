@@ -472,9 +472,9 @@ static const char * const x264_motion_est_names[] = { "dia", "hex", "umh", "esa"
 #define _NEW_SATD_EST_ 1
 #define RC_P_WINDOW 8
 #define GOPSIZE 3 //gopsize+1
-#define _OVERFLOW_ADJUST_ 0
+#define _OVERFLOW_ADJUST_ 1
 #define _USE_STD_PRED_ 1
-#define _USE_QPOFFSET_ 1
+#define _USE_QPOFFSET_ 0
 #define _USE_SMALL_BIG_P_ 0
 #define _USE_LCU_ 0
 #define _USE_BITS_ADJUST_ 1
@@ -586,6 +586,7 @@ typedef struct
 		float       f_vbv_buffer_init;
 		float       f_ip_factor;
 		float       f_pb_factor;
+		float       f_decay;
 
 		/* 2pass params (same as ffmpeg ones) */
 		float       f_qcompress;    /* 0.0 => cbr, 1.0 => constant qp */
@@ -705,6 +706,7 @@ struct x264_ratecontrol_t
 	int *lcu_satd;
 	int *lcu_bits;
 	double last_rceq_lcu;
+	double last_qscale_lcu;
 
 	int num_entries;            /* number of ratecontrol_entry_ts */
 	ratecontrol_entry_t *entry; /* FIXME: copy needed data and free this once init is done */
