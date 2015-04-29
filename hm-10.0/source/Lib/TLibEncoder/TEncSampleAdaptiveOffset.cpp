@@ -1702,9 +1702,9 @@ Void TEncSampleAdaptiveOffset::SAOProcess(SAOParam *pcSaoParam, Double dLambda)
   if ( m_saoLcuBasedOptimization)
   {
 #if SAO_ENCODING_CHOICE
-    rdoSaoUnitAll(pcSaoParam, dLambdaLuma, dLambdaChroma, depth);
+    rdoSaoUnitAll(pcSaoParam, m_dLambdaLuma, m_dLambdaChroma, depth);
 #else
-    rdoSaoUnitAll(pcSaoParam, dLambdaLuma, dLambdaChroma);
+    rdoSaoUnitAll(pcSaoParam, m_dLambdaLuma, m_dLambdaChroma);
 #endif
   }
   else
@@ -1712,7 +1712,7 @@ Void TEncSampleAdaptiveOffset::SAOProcess(SAOParam *pcSaoParam, Double dLambda)
     pcSaoParam->bSaoFlag[0] = 1;
     pcSaoParam->bSaoFlag[1] = 0;
     dCostFinal = 0;
-    Double lambdaRdo =  dLambdaLuma;
+    Double lambdaRdo =  m_dLambdaLuma;
     resetStats();
     getSaoStats(pcSaoParam->psSaoPart[0], 0);
     runQuadTreeDecision(pcSaoParam->psSaoPart[0], 0, dCostFinal, m_uiMaxSplitLevel, lambdaRdo, 0);
