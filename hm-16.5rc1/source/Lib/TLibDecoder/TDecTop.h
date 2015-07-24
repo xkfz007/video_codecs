@@ -51,7 +51,7 @@
 #include "TDecSbac.h"
 #include "TDecCAVLC.h"
 #include "SEIread.h"
-
+#define OUTPUT_FRM_LEN 1
 class InputNALUnit;
 
 //! \ingroup TLibDecoder
@@ -140,6 +140,9 @@ public:
 #endif
   Void  setDecodedSEIMessageOutputStream(std::ostream *pOpStream) { m_pDecodedSEIOutputStream = pOpStream; }
   UInt  getNumberOfChecksumErrorsDetected() const { return m_cGopDecoder.getNumberOfChecksumErrorsDetected(); }
+#if OUTPUT_FRM_LEN
+  int frm_len;
+#endif
 
 protected:
   Void  xGetNewPicBuffer  (const TComSPS &sps, const TComPPS &pps, TComPic*& rpcPic, const UInt temporalLayer);

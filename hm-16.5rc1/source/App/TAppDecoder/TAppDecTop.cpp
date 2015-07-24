@@ -122,6 +122,9 @@ Void TAppDecTop::decode()
   // main decoder loop
   Bool openedReconFile = false; // reconstruction file not yet opened. (must be performed after SPS is seen)
   Bool loopFiltered = false;
+#if OUTPUT_FRM_LEN
+  m_cTDecTop.frm_len=0;
+#endif
 
   while (!!bitstreamFile)
   {
@@ -139,6 +142,9 @@ Void TAppDecTop::decode()
 
     InputNALUnit nalu;
     byteStreamNALUnit(bytestream, nalu.getBitstream().getFifo(), stats);
+//#if OUTPUT_FRM_LEN
+    //m_cTDecTop.frm_len+=stats.m_numBytesInNALUnit;
+//#endif
 
     // call actual decoding function
     Bool bNewPicture = false;

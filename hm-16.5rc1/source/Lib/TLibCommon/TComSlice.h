@@ -1623,6 +1623,9 @@ public:
 
   Void                        setEncCABACTableIdx( SliceType idx )                   { m_encCABACTableIdx = idx;                                     }
   SliceType                   getEncCABACTableIdx() const                            { return m_encCABACTableIdx;                                    }
+#if 1//OUTPUT_FRM_LEN
+  int slice_len;
+#endif
 
 protected:
   TComPic*                    xGetRefPic        (TComList<TComPic*>& rcListPic, Int poc);

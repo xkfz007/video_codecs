@@ -166,6 +166,9 @@ public:
    * return the current list of SEI messages associated with this picture.
    * Pointer is valid until this->destroy() is called */
   const SEIMessages& getSEIs() const { return m_SEIs; }
+#if 1//OUTPUT_FRM_LEN
+  int pic_len;
+#endif
 };// END CLASS DEFINITION TComPic
 
 //! \}

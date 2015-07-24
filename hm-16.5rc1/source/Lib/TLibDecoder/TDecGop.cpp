@@ -163,6 +163,10 @@ Void TDecGop::filterPicture(TComPic* pcPic)
                                                   pcSlice->getTLayer(),
                                                   c,
                                                   pcSlice->getSliceQp() );
+#if 1//OUTPUT_FRM_LEN
+  printf("%8d bits",pcPic->pic_len*8);
+  //printf("%8d bits",pic_len);
+#endif
 
   m_dDecTime += (Double)(clock()-iBeforeTime) / CLOCKS_PER_SEC;
   printf ("[DT %6.3f] ", m_dDecTime );

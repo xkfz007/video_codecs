@@ -100,6 +100,9 @@ public:
 
   Void setDecodedPictureHashSEIEnabled(Int enabled) { m_decodedPictureHashSEIEnabled = enabled; }
   UInt getNumberOfChecksumErrorsDetected() const { return m_numberOfChecksumErrorsDetected; }
+//#if 1//OUTPUT_FRM_LEN
+//  int pic_len;
+//#endif
 
 };
 

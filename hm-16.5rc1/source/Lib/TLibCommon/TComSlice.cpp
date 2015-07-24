@@ -778,6 +778,9 @@ Void TComSlice::copySliceInfo(TComSlice *pSrc)
   m_enableTMVPFlag                = pSrc->m_enableTMVPFlag;
   m_maxNumMergeCand               = pSrc->m_maxNumMergeCand;
   m_encCABACTableIdx              = pSrc->m_encCABACTableIdx;
+#if 1//OUTPUT_FRM_LEN
+  slice_len=pSrc->slice_len;
+#endif
 }
 
 
