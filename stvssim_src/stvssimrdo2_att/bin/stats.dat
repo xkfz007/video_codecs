@@ -1,0 +1,78 @@
+ -------------------------------------------------------------- 
+  This file contains statistics for the last encoded sequence   
+ -------------------------------------------------------------- 
+ Sequence                     : d:/qcif/foreman_qcif.yuv
+ No.of coded pictures         :   10
+ Freq. for encoded bitstream  :   30
+ I Slice Bitrate(kb/s)        : 109.22
+ P Slice Bitrate(kb/s)        : 466.80
+ B Slice Bitrate(kb/s)        :   0.00
+ Total Bitrate(kb/s)          : 576.55
+ ME Level 0 Metric            : SAD
+ ME Level 1 Metric            : Hadamard SAD
+ ME Level 2 Metric            : Hadamard SAD
+ Mode Decision Metric         : Hadamard SAD
+ ME for components            : Y
+ Image format                 : 176x144
+ Error robustness             : Off
+ Search range                 : 32
+ Total number of references   : 5
+ References for P slices      : 5
+ Profile/Level IDC            : (100,40)
+ Entropy coding method        : CAVLC
+ Search range restrictions    : none
+ RD-optimized mode decision   : used
+
+ ---------------------|----------------|---------------|
+     Item             |     Intra      |   All frames  |
+ ---------------------|----------------|---------------|
+ SNR Y(dB)            | 38.01          | 37.43         |
+ SNR U/V (dB)         | 39.98/41.99    | 40.06/41.68   |
+ ---------------------|----------------|---------------|
+
+ Average quant        |    28          | 28.00         |
+ ---------------------|----------------|---------------|---------------|
+     SNR              |        I       |       P       |       B       |
+ ---------------------|----------------|---------------|---------------|
+ SNR Y(dB)            |      38.008    |     37.367    |     0.000    |
+ SNR U(dB)            |      39.978    |     40.066    |     0.000    |
+ SNR V(dB)            |      41.994    |     41.646    |     0.000    |
+ ---------------------|----------------|---------------|---------------|
+
+ ---------------------|----------------|
+   Intra              |   Mode used    |
+ ---------------------|----------------|
+ Mode 0  intra 4x4    |     98         |
+ Mode 1  intra 8x8    |      0         |
+ Mode 2+ intra 16x16  |      1         |
+ Mode    intra IPCM   |      0         |
+ ---------------------|----------------|-----------------|
+   P Slice            |   Mode used    | MotionInfo bits |
+ ---------------------|----------------|-----------------|
+ Mode  0  (copy)      |     18         |        0.00     |
+ Mode  1  (16x16)     |    104         |      123.67     |
+ Mode  2  (16x8)      |    117         |      359.33     |
+ Mode  3  (8x16)      |    140         |      423.78     |
+ Mode  4  (8x8)       |    419         |    10434.00     |
+ Mode  5  intra 4x4   |     78         |-----------------|
+ Mode  6  intra 8x8   |      0         |
+ Mode  7+ intra 16x16 |     15         |
+ Mode     intra IPCM  |      0         |
+ ---------------------|----------------|
+
+ ---------------------|----------------|----------------|----------------|
+  Bit usage:          |      Intra     |      Inter     |    B frame     |
+ ---------------------|----------------|----------------|----------------|
+ Header               |      26.00     |      30.89     |       0.00     |
+ Mode                 |     105.00     |    1256.67     |       0.00     |
+ Motion Info          |        ./.     |   11340.78     |       0.00     |
+ CBP Y/C              |     342.00     |     242.00     |       0.00     |
+ Coeffs. Y            |   33111.00     |    3785.89     |       0.00     |
+ Coeffs. C            |    2682.00     |     552.78     |       0.00     |
+ Coeffs. CB           |       0.00     |       0.00     |       0.00     |
+ Coeffs. CB           |       0.00     |       0.00     |       0.00     |
+ Delta quant          |      98.00     |      36.00     |       0.00     |
+ Stuffing Bits        |       0.00     |       0.00     |       0.00     |
+ ---------------------|----------------|----------------|----------------|
+ average bits/frame   |   36364.00     |   17245.00     |       0.00     |
+ ---------------------|----------------|----------------|----------------|

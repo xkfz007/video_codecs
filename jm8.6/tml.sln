@@ -1,0 +1,31 @@
+Microsoft Visual Studio Solution File, Format Version 10.00
+# Visual Studio 2008
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ldecod", "ldecod.vcproj", "{FC2874B4-5952-4A3C-8C19-EED7569EF2CA}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "lencod", "lencod.vcproj", "{72DAD792-E787-4D8D-BC80-4DDEAE91F4FF}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "rtpdump", "rtpdump\rtpdump.vcproj", "{19461580-A86F-46C9-BCBF-F6D3E6C33DB2}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{FC2874B4-5952-4A3C-8C19-EED7569EF2CA}.Debug|Win32.ActiveCfg = Debug|Win32
+		{FC2874B4-5952-4A3C-8C19-EED7569EF2CA}.Debug|Win32.Build.0 = Debug|Win32
+		{FC2874B4-5952-4A3C-8C19-EED7569EF2CA}.Release|Win32.ActiveCfg = Release|Win32
+		{FC2874B4-5952-4A3C-8C19-EED7569EF2CA}.Release|Win32.Build.0 = Release|Win32
+		{72DAD792-E787-4D8D-BC80-4DDEAE91F4FF}.Debug|Win32.ActiveCfg = Debug|Win32
+		{72DAD792-E787-4D8D-BC80-4DDEAE91F4FF}.Debug|Win32.Build.0 = Debug|Win32
+		{72DAD792-E787-4D8D-BC80-4DDEAE91F4FF}.Release|Win32.ActiveCfg = Release|Win32
+		{72DAD792-E787-4D8D-BC80-4DDEAE91F4FF}.Release|Win32.Build.0 = Release|Win32
+		{19461580-A86F-46C9-BCBF-F6D3E6C33DB2}.Debug|Win32.ActiveCfg = Debug|Win32
+		{19461580-A86F-46C9-BCBF-F6D3E6C33DB2}.Debug|Win32.Build.0 = Debug|Win32
+		{19461580-A86F-46C9-BCBF-F6D3E6C33DB2}.Release|Win32.ActiveCfg = Release|Win32
+		{19461580-A86F-46C9-BCBF-F6D3E6C33DB2}.Release|Win32.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

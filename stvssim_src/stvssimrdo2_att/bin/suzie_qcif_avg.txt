@@ -1,0 +1,25 @@
+------------------------------------  Average data all frames  ---------------------------------
+
+ Total encoding time for the seq.  : 679.158 sec (0.15 fps)
+ Total ME time for sequence        : 129.498 sec 
+
+ Y { PSNR (dB), cSNR (dB), MSE }   : { 34.40, 34.27, 24.31 }
+ U { PSNR (dB), cSNR (dB), MSE }   : { 43.06, 43.05,  3.22 }
+ V { PSNR (dB), cSNR (dB), MSE }   : { 42.93, 42.90,  3.33 }
+ Y SSIM                            : 0.9320
+ U SSIM                            : 0.9676
+ V SSIM                            : 0.9674
+ Y SSIM3D                          : 0.9478
+ U SSIM3D                          : 0.9551
+ V SSIM3D                          : 0.9650
+ Y STVSSIM                         : 0.8847
+ U STVSSIM                         : 0.9242
+ V STVSSIM                         : 0.9335
+
+ Total bits                        : 242256 (I 17832, P 224248, NVB 176) 
+ Bit rate (kbit/s)  @ 30.00 Hz     : 72.68
+ Bits to avoid Startcode Emulation : 0 
+ Bits for parameter sets           : 176 
+
+------------------------------------------------------------------------------------------------
+Exit JM 14 (FRExt) encoder ver 14.1 
